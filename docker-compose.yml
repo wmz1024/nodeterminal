@@ -1,7 +1,7 @@
 services:
   nodeterminal:
     build: .
-    image: nodeterminal:latest
+    image: wmz1024/nodeterminal:latest
     container_name: nodeterminal
     restart: unless-stopped
     ports:

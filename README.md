@@ -113,14 +113,18 @@ server {
 
 ## Docker 部署
 
+镜像已发布至 Docker Hub：[wmz1024/nodeterminal](https://hub.docker.com/r/wmz1024/nodeterminal)，**无需本地构建**，直接拉取运行即可。
+
 ### 使用 Docker Compose（推荐）
 
 ```bash
-# 复制环境变量配置
-cp .env.example .env
+# 创建目录并准备配置
+mkdir nodeterminal && cd nodeterminal
+mkdir users
+wget https://raw.githubusercontent.com/wmz1024/nodeterminal/main/.env.example -O .env
 # 按需编辑 .env
 
-# 构建并启动
+# 拉取并启动
 docker compose up -d
 
 # 查看日志
@@ -130,22 +134,41 @@ docker compose logs -f
 docker compose down
 ```
 
-用户数据保存在宿主机 `./users/` 目录，容器重建不会丢失数据。
+你只需要一个 `docker-compose.yml` 文件，内容如下：
+
+```yaml
+services:
+  nodeterminal:
+    image: wmz1024/nodeterminal:latest
+    container_name: nodeterminal
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./users:/app/users
+      - ./.env:/app/.env:ro
+    environment:
+      - NODE_ENV=production
+```
 
 ### 直接使用 Docker
 
 ```bash
-# 构建镜像
-docker build -t nodeterminal .
-
-# 运行容器
 docker run -d \
   --name nodeterminal \
   --restart unless-stopped \
   -p 3000:3000 \
   -v $(pwd)/users:/app/users \
   -v $(pwd)/.env:/app/.env:ro \
-  nodeterminal
+  wmz1024/nodeterminal:latest
+```
+
+### 更新镜像
+
+```bash
+docker compose down
+docker compose pull
+docker compose up -d
 ```
 
 ### 挂载说明
@@ -155,12 +178,14 @@ docker run -d \
 | `./users/` | `/app/users/` | 用户账号数据（持久化） |
 | `./.env` | `/app/.env` | 环境变量配置（只读挂载） |
 
-### 更新镜像
+### 本地构建（开发者）
+
+仅在需要修改源码后自行构建时使用：
 
 ```bash
-docker compose down
-docker compose build --no-cache
-docker compose up -d
+git clone https://github.com/wmz1024/nodeterminal.git
+cd nodeterminal
+docker build -t wmz1024/nodeterminal .
 ```
 
 ## iframe 嵌入 (embed.html)
