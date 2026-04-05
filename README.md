@@ -2,10 +2,28 @@
 
 基于 Node.js 的 Web 远程连接管理器，支持 SSH 终端、SFTP 文件管理、VNC/RDP 远程桌面和 FTP 文件传输，所有操作均在浏览器中完成。
 
+## 功能展示
+
+### SSH&SFTP
+
+![o7iVkBTDrQghIzaeH7HsRaXr4YqbKRl0.webp](https://cdn.nodeimage.com/i/o7iVkBTDrQghIzaeH7HsRaXr4YqbKRl0.webp)
+
+### VNC
+
+![NxGRs6fs4rbETlxpFdFaKTgb0PAAYLjw.webp](https://cdn.nodeimage.com/i/NxGRs6fs4rbETlxpFdFaKTgb0PAAYLjw.webp)
+
+### RDP
+
+![3I9zo3QfmaRoC4kqD7mvJ0Ms51LFZigR.webp](https://cdn.nodeimage.com/i/3I9zo3QfmaRoC4kqD7mvJ0Ms51LFZigR.webp)
+
+### SFTP/FTP
+
+![j2SQe90Hxg0xhV3x1KUESzgSw30fEFJL.webp](https://cdn.nodeimage.com/i/j2SQe90Hxg0xhV3x1KUESzgSw30fEFJL.webp)
+
 ## 功能特点
 
 ### 多协议支持
-- **SSH 终端** — 基于 xterm.js 的全功能 Web 终端，支持密码和密钥认证
+- **SSH 终端** — 基于 xterm.js 的全功能 Web 终端，支持密码和密钥认证，同时支持目录跟随自动SFTP。
 - **SFTP 文件管理** — 在线浏览、上传、下载、编辑远程文件，支持拖拽上传
 - **VNC 远程桌面** — 基于 noVNC 的浏览器内 VNC 客户端
 - **RDP 远程桌面** — 基于 mstsc.js / node-rdpjs 的浏览器内 Windows 远程桌面
