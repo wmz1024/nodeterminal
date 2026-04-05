@@ -117,23 +117,6 @@ server {
 
 ### 使用 Docker Compose（推荐）
 
-```bash
-# 创建目录并准备配置
-mkdir nodeterminal && cd nodeterminal
-mkdir users
-wget https://raw.githubusercontent.com/wmz1024/nodeterminal/main/.env.example -O .env
-# 按需编辑 .env
-
-# 拉取并启动
-docker compose up -d
-
-# 查看日志
-docker compose logs -f
-
-# 停止
-docker compose down
-```
-
 你只需要一个 `docker-compose.yml` 文件，内容如下：
 
 ```yaml
@@ -149,6 +132,20 @@ services:
       - ./.env:/app/.env:ro
     environment:
       - NODE_ENV=production
+```
+
+```bash
+wget https://raw.githubusercontent.com/wmz1024/nodeterminal/main/.env.example -O .env
+# 按需编辑 .env
+
+# 拉取并启动
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+
+# 停止
+docker compose down
 ```
 
 ### 直接使用 Docker
