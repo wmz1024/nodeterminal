@@ -1,0 +1,13 @@
+services:
+  nodeterminal:
+    build: .
+    image: nodeterminal:latest
+    container_name: nodeterminal
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./users:/app/users
+      - ./.env:/app/.env:ro
+    environment:
+      - NODE_ENV=production

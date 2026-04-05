@@ -111,6 +111,58 @@ server {
 }
 ```
 
+## Docker 部署
+
+### 使用 Docker Compose（推荐）
+
+```bash
+# 复制环境变量配置
+cp .env.example .env
+# 按需编辑 .env
+
+# 构建并启动
+docker compose up -d
+
+# 查看日志
+docker compose logs -f
+
+# 停止
+docker compose down
+```
+
+用户数据保存在宿主机 `./users/` 目录，容器重建不会丢失数据。
+
+### 直接使用 Docker
+
+```bash
+# 构建镜像
+docker build -t nodeterminal .
+
+# 运行容器
+docker run -d \
+  --name nodeterminal \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -v $(pwd)/users:/app/users \
+  -v $(pwd)/.env:/app/.env:ro \
+  nodeterminal
+```
+
+### 挂载说明
+
+| 宿主机路径 | 容器路径 | 说明 |
+|-----------|---------|------|
+| `./users/` | `/app/users/` | 用户账号数据（持久化） |
+| `./.env` | `/app/.env` | 环境变量配置（只读挂载） |
+
+### 更新镜像
+
+```bash
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+
 ## iframe 嵌入 (embed.html)
 
 `embed.html` 是一个中间件页面，通过 URL 查询参数接收连接信息，自动路由到对应的功能页面（SSH、SFTP、VNC、RDP、FTP）。适合将 NodeTerminal 嵌入到其他系统的 iframe 中使用。
