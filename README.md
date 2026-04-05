@@ -2,6 +2,8 @@
 
 基于 Node.js 的 Web 远程连接管理器，支持 SSH 终端、SFTP 文件管理、VNC/RDP 远程桌面和 FTP 文件传输，所有操作均在浏览器中完成。
 
+Github: https://github.com/wmz1024/nodeterminal
+
 ## 功能展示
 
 ### SSH&SFTP
@@ -43,9 +45,10 @@
 - **单项操作** — 支持逐条上传、下载、删除云端数据
 
 ### 其他
-- **深色主题** — 精心设计的暗色 UI
+- **暗色/亮色主题** — 支持一键切换，偏好自动保存到本地
 - **响应式布局** — 适配桌面和移动设备
 - **中文界面** — 全中文本地化
+- **iframe 嵌入** — 提供 `embed.html` 中间页，可通过 URL 参数直接嵌入到第三方系统
 
 ## 部署
 
@@ -108,6 +111,62 @@ server {
 }
 ```
 
+## iframe 嵌入 (embed.html)
+
+`embed.html` 是一个中间件页面，通过 URL 查询参数接收连接信息，自动路由到对应的功能页面（SSH、SFTP、VNC、RDP、FTP）。适合将 NodeTerminal 嵌入到其他系统的 iframe 中使用。
+
+### 基本格式
+
+```
+/embed.html?type=<类型>&host=<地址>&port=<端口>&user=<用户名>&pass=<密码>
+```
+
+### 参数说明
+
+| 参数 | 说明 | 必填 |
+|------|------|------|
+| `type` | 连接类型：`ssh` / `sftp` / `vnc` / `rdp` / `ftp` | 是 |
+| `host` | 服务器地址 | 是 |
+| `port` | 端口号（各协议有默认值） | 否 |
+| `user` | 用户名 | 否 |
+| `pass` | 密码 | 否 |
+| `key` | SSH 私钥内容（SSH/SFTP） | 否 |
+| `secure` | FTP 加密模式：`false` / `true` / `implicit` | 否 |
+
+### 各类型示例
+
+```bash
+# SSH 终端
+/embed.html?type=ssh&host=192.168.1.1&port=22&user=root&pass=123456
+
+# SFTP 文件管理
+/embed.html?type=sftp&host=192.168.1.1&user=root&pass=123456
+
+# VNC 远程桌面
+/embed.html?type=vnc&host=192.168.1.1&port=5900&pass=vncpass
+
+# RDP 远程桌面
+/embed.html?type=rdp&host=192.168.1.1&port=3389&user=Administrator&pass=123456
+
+# FTP 文件传输（FTPS）
+/embed.html?type=ftp&host=192.168.1.1&port=21&user=ftpuser&pass=123456&secure=true
+```
+
+### 在 iframe 中使用
+
+```html
+<iframe
+  src="https://your-nodeterminal.com/embed.html?type=ssh&host=10.0.0.1&user=root&pass=xxx"
+  width="100%"
+  height="600"
+  style="border: none;"
+  allow="clipboard-read; clipboard-write"
+  allowfullscreen>
+</iframe>
+```
+
+> **安全提示**：URL 中包含明文密码，建议仅在内网或受信环境中使用，或通过后端动态生成带有临时凭据的嵌入链接。
+
 ## 项目结构
 
 ```
@@ -126,6 +185,7 @@ nodeterminal/
     ├── vnc.html        # VNC 远程桌面页面
     ├── rdp.html        # RDP 远程桌面页面
     ├── ftp.html        # FTP 文件管理页面
+    ├── embed.html      # iframe 嵌入中间件
     ├── novnc/          # noVNC 客户端库
     ├── rdpjs/          # mstsc.js 客户端库
     └── vendor/         # 前端依赖（xterm.js 等）

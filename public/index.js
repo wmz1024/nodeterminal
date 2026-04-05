@@ -1126,7 +1126,28 @@ async function claimOidcToken() {
   }
 }
 
+// ===== Theme =====
+const THEME_KEY = 'nt_theme';
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeIconMoon').style.display = theme === 'dark' ? '' : 'none';
+  document.getElementById('themeIconSun').style.display = theme === 'light' ? '' : 'none';
+}
+
+function toggleTheme() {
+  const current = localStorage.getItem(THEME_KEY) || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+}
+
+function loadTheme() {
+  applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+}
+
 // Init
+loadTheme();
 claimOidcToken().then(() => {
   loadSession();
   loadServers();

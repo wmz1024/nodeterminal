@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NodeTerminal Embed</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #05060f; font-family: 'Inter', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+    iframe { width: 100%; height: 100%; border: none; }
+    .embed-error {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; height: 100%;
+      color: #6b7194; font-size: 14px; text-align: center;
+      flex-direction: column; gap: 12px;
+    }
+    .embed-error h2 { color: #eef0ff; font-size: 18px; font-weight: 600; }
+    .embed-error code {
+      display: block; margin-top: 8px; padding: 12px 20px;
+      background: #131627; border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; font-size: 12px; color: #a29bfe;
+      text-align: left; max-width: 600px; line-height: 1.8;
+      white-space: pre-wrap; word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+<script>
+(function() {
+  const params = new URLSearchParams(location.search);
+  const type = (params.get('type') || '').toLowerCase();
+
+  // Supported types and their target pages
+  const typeMap = {
+    ssh:  '/terminal.html',
+    sftp: '/sftp.html',
+    vnc:  '/vnc.html',
+    rdp:  '/rdp.html',
+    ftp:  '/ftp.html'
+  };
+
+  const target = typeMap[type];
+  if (!target) {
+    document.body.innerHTML =
+      '<div class="embed-error">' +
+        '<h2>NodeTerminal Embed</h2>' +
+        '<p>缺少或不支持的连接类型参数 <b>type</b></p>' +
+        '<p>支持的类型: ssh, sftp, vnc, rdp, ftp</p>' +
+        '<code>' +
+          '示例:\n' +
+          '/embed.html?type=ssh&host=192.168.1.1&port=22&user=root&pass=xxx\n' +
+          '/embed.html?type=sftp&host=192.168.1.1&user=root&pass=xxx\n' +
+          '/embed.html?type=vnc&host=192.168.1.1&port=5900&pass=xxx\n' +
+          '/embed.html?type=rdp&host=192.168.1.1&port=3389&user=Administrator&pass=xxx\n' +
+          '/embed.html?type=ftp&host=192.168.1.1&port=21&user=anonymous&pass=&secure=false' +
+        '</code>' +
+      '</div>';
+    return;
+  }
+
+  // Forward all params except 'type' to the target page
+  const forward = new URLSearchParams();
+  for (const [key, value] of params.entries()) {
+    if (key !== 'type') forward.set(key, value);
+  }
+
+  const iframeSrc = target + '?' + forward.toString();
+  const iframe = document.createElement('iframe');
+  iframe.src = iframeSrc;
+  iframe.allow = 'clipboard-read; clipboard-write';
+  iframe.setAttribute('allowfullscreen', '');
+  document.body.appendChild(iframe);
+
+  // Update document title when iframe loads
+  iframe.addEventListener('load', function() {
+    try { document.title = iframe.contentDocument.title || 'NodeTerminal Embed'; } catch(e) {}
+  });
+})();
+</script>
+</body>
+</html>

@@ -39,6 +39,32 @@
       --radius-xl: 20px;
     }
 
+    [data-theme="light"] {
+      --bg-base: #f0f2f5;
+      --bg-surface: #e4e6eb;
+      --bg-elevated: #ffffff;
+      --bg-card: #ffffff;
+      --bg-input: #f0f2f5;
+      --bg-hover: #e4e6eb;
+      --text-primary: #1a1c2e;
+      --text-secondary: #5f6785;
+      --text-tertiary: #8b90a8;
+      --accent: #6c5ce7;
+      --accent-light: #7c6df0;
+      --accent-glow: rgba(108, 92, 231, 0.18);
+      --accent-gradient: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      --danger: #e74c3c;
+      --danger-glow: rgba(231, 76, 60, 0.15);
+      --success: #00b863;
+      --success-glow: rgba(0, 184, 99, 0.12);
+      --warning: #f0a500;
+      --border: rgba(0, 0, 0, 0.08);
+      --border-light: rgba(0, 0, 0, 0.12);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+      --shadow-md: 0 8px 32px rgba(0,0,0,0.08);
+      --shadow-lg: 0 16px 64px rgba(0,0,0,0.1);
+    }
+
     body {
       font-family: 'Inter', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
       background: var(--bg-base);
@@ -65,6 +91,9 @@
       align-items: center;
       padding: 0 24px;
       gap: 16px;
+    }
+    [data-theme="light"] .topbar {
+      background: rgba(255, 255, 255, 0.85);
     }
 
     .topbar .logo {
@@ -725,6 +754,10 @@
       <button class="btn btn-ghost btn-sm" id="loginBtn" onclick="showLoginModal()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         登录同步
+      </button>
+      <button class="icon-btn" id="themeToggle" onclick="toggleTheme()" title="切换主题" style="width:30px;height:30px">
+        <svg id="themeIconMoon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg id="themeIconSun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
       </button>
       <button class="btn btn-ghost btn-sm" onclick="showSearchModal()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
