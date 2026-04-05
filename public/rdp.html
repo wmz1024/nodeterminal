@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>RDP - NodeTerminal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-base: #05060f;
+      --bg-surface: #0c0e1a;
+      --bg-elevated: #131627;
+      --bg-hover: #222744;
+      --text-primary: #eef0ff;
+      --text-secondary: #6b7194;
+      --text-tertiary: #444a6b;
+      --accent: #6c5ce7;
+      --accent-light: #a29bfe;
+      --accent-glow: rgba(108, 92, 231, 0.25);
+      --danger: #ff6b6b;
+      --success: #00e676;
+      --warning: #ffd93d;
+      --border: rgba(255, 255, 255, 0.06);
+      --border-light: rgba(255, 255, 255, 0.1);
+    }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      height: 100vh; height: 100dvh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .topbar {
+      height: 44px; min-height: 44px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 16px; gap: 10px;
+    }
+    .topbar-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .topbar-icon svg { width: 15px; height: 15px; stroke: #4fc3f7; fill: none; }
+    .topbar-title {
+      font-size: 13px; font-weight: 600; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px; min-width: 0;
+    }
+    .topbar-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar-sub {
+      font-size: 11px; color: var(--text-tertiary); font-weight: 400;
+      font-family: 'SF Mono', 'Cascadia Code', monospace;
+    }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    .conn-badge {
+      display: flex; align-items: center; gap: 5px; font-size: 11px;
+      color: var(--text-tertiary); padding: 4px 12px; border-radius: 20px;
+      background: var(--bg-elevated); border: 1px solid var(--border); font-weight: 500;
+    }
+    .conn-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); }
+    .conn-badge.connected { color: var(--success); border-color: rgba(0,230,118,0.2); background: rgba(0,230,118,0.05); }
+    .conn-badge.connected .dot { background: var(--success); }
+
+    .tb-btn {
+      display: flex; align-items: center; justify-content: center;
+      gap: 5px; padding: 5px 12px; border: 1px solid var(--border);
+      background: var(--bg-elevated); color: var(--text-secondary);
+      border-radius: 6px; font-size: 11px; font-weight: 500;
+      cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap;
+    }
+    .tb-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-light); }
+    .tb-btn.danger { border-color: rgba(255,107,107,0.3); color: var(--danger); }
+    .tb-btn.danger:hover { background: var(--danger); color: #fff; }
+
+    .rdp-area {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      overflow: auto; position: relative; background: #000;
+    }
+    #rdpCanvas { cursor: default; display: block; }
+
+    .rdp-status {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; color: var(--text-tertiary); font-size: 14px;
+      background: var(--bg-base); z-index: 10; transition: opacity 0.3s;
+    }
+    .rdp-status.hidden { opacity: 0; pointer-events: none; }
+    .rdp-spinner {
+      width: 28px; height: 28px;
+      border: 3px solid var(--border-light); border-top-color: #4fc3f7;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .rdp-error { color: var(--danger); font-size: 13px; text-align: center; padding: 0 20px; }
+
+    .statusbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 16px; border-top: 1px solid var(--border);
+      background: var(--bg-surface); font-size: 10px; color: var(--text-tertiary);
+    }
+
+    .toast-container {
+      position: fixed; bottom: 20px; right: 20px;
+      display: flex; flex-direction: column; gap: 8px; z-index: 2000; pointer-events: none;
+    }
+    .toast {
+      padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500;
+      background: var(--bg-elevated); border: 1px solid var(--border-light);
+      color: var(--text-primary); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: toastIn 0.3s ease; pointer-events: auto;
+    }
+    .toast.error { border-color: rgba(255,107,107,0.3); color: var(--danger); }
+    .toast.success { border-color: rgba(0,230,118,0.3); color: var(--success); }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+    </div>
+    <div class="topbar-title">
+      <span>RDP</span>
+      <span class="topbar-sub" id="topbarLabel">连接中...</span>
+    </div>
+    <div class="topbar-right">
+      <button class="tb-btn" onclick="sendCtrlAltDel()" title="Ctrl+Alt+Del">CAD</button>
+      <button class="tb-btn" onclick="downloadRdpFile()" title="下载 .rdp 文件">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        .rdp
+      </button>
+      <button class="tb-btn" onclick="toggleFullscreen()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      </button>
+      <div class="conn-badge" id="connBadge">
+        <span class="dot"></span>
+        <span id="connStatusText">连接中</span>
+      </div>
+      <button class="tb-btn danger" id="disconnectBtn" onclick="disconnect()" style="display:none">断开</button>
+    </div>
+  </div>
+
+  <div class="rdp-area" id="rdpArea">
+    <canvas id="rdpCanvas"></canvas>
+    <div class="rdp-status" id="rdpStatus">
+      <div class="rdp-spinner"></div>
+      <span id="rdpStatusText">正在连接...</span>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span id="statusText">等待连接...</span>
+    <span id="resolution"></span>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- mstsc.js client libraries -->
+  <script src="/rdpjs/rle.js"></script>
+  <script src="/rdpjs/mstsc.js"></script>
+  <script src="/rdpjs/canvas.js"></script>
+  <script src="/rdpjs/keyboard.js"></script>
+  <script>
+    const STORAGE_KEY = 'ssh_servers';
+    let ws = null;
+    let canvas = null;
+    let connInfo = null;
+
+    function toast(msg, type) {
+      const el = document.createElement('div');
+      el.className = 'toast' + (type ? ' ' + type : '');
+      el.textContent = msg;
+      document.getElementById('toastContainer').appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+    }
+
+    function setConnected(status) {
+      const badge = document.getElementById('connBadge');
+      const text = document.getElementById('connStatusText');
+      const btn = document.getElementById('disconnectBtn');
+      badge.className = status ? 'conn-badge connected' : 'conn-badge';
+      text.textContent = status ? '已连接' : '未连接';
+      btn.style.display = status ? '' : 'none';
+    }
+
+    // Load connection info from localStorage
+    const params = new URLSearchParams(location.search);
+    const serverId = params.get('id');
+    if (serverId) {
+      try {
+        const servers = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        const s = servers.find(x => x.id === serverId);
+        if (s) connInfo = {
+          name: s.name, host: s.host, port: s.port || 3389,
+          username: s.username || 'Administrator', password: s.password || '',
+          domain: s.domain || ''
+        };
+      } catch {}
+    }
+
+    if (!connInfo) {
+      document.getElementById('topbarLabel').textContent = '缺少连接参数';
+      document.getElementById('rdpStatusText').textContent = '错误: 缺少连接参数';
+    } else {
+      document.title = 'RDP ' + connInfo.name + ' - NodeTerminal';
+      document.getElementById('topbarLabel').textContent = connInfo.host + ':' + connInfo.port;
+      startConnection();
+    }
+
+    function startConnection() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = proto + '//' + location.host + '/rdp-proxy';
+
+      document.getElementById('rdpStatusText').textContent = '正在连接 ' + connInfo.host + ':' + connInfo.port + '...';
+
+      ws = new WebSocket(wsUrl);
+      const canvasEl = document.getElementById('rdpCanvas');
+      canvas = Mstsc.Canvas.create(canvasEl);
+
+      // Determine screen size
+      const area = document.getElementById('rdpArea');
+      const screenW = Math.min(area.clientWidth, 1920) || 1280;
+      const screenH = Math.min(area.clientHeight, 1080) || 720;
+
+      ws.onopen = function() {
+        // Send connection info
+        ws.send(JSON.stringify({
+          type: 'infos',
+          host: connInfo.host,
+          port: connInfo.port,
+          username: connInfo.username,
+          password: connInfo.password,
+          domain: connInfo.domain,
+          screen: { width: screenW, height: screenH },
+          locale: Mstsc.locale()
+        }));
+      };
+
+      ws.onmessage = function(event) {
+        let msg;
+        try { msg = JSON.parse(event.data); } catch { return; }
+
+        if (msg.type === 'rdp-connect') {
+          document.getElementById('rdpStatus').classList.add('hidden');
+          setConnected(true);
+
+          // Set canvas size
+          canvasEl.width = screenW;
+          canvasEl.height = screenH;
+          document.getElementById('resolution').textContent = screenW + ' × ' + screenH;
+          document.getElementById('statusText').textContent = '已连接 - ' + connInfo.host + ':' + connInfo.port;
+          toast('RDP 连接成功', 'success');
+
+          // Bind input events
+          bindMouseEvents(canvasEl);
+          bindKeyboardEvents();
+        }
+
+        if (msg.type === 'rdp-bitmap') {
+          // Decode base64 bitmap data back to Uint8Array
+          var bmp = msg.data;
+          if (typeof bmp.data === 'string') {
+            var bin = atob(bmp.data);
+            var arr = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            bmp.data = arr;
+          }
+          canvas.update(bmp);
+        }
+
+        if (msg.type === 'rdp-close') {
+          setConnected(false);
+          document.getElementById('rdpStatus').classList.remove('hidden');
+          document.getElementById('rdpStatusText').textContent = '连接已关闭';
+          document.getElementById('statusText').textContent = '连接已关闭';
+          toast('RDP 连接已关闭', '');
+        }
+
+        if (msg.type === 'rdp-error') {
+          setConnected(false);
+          document.getElementById('rdpStatus').classList.remove('hidden');
+          document.getElementById('rdpStatusText').innerHTML =
+            '<div class="rdp-error">连接错误: ' + (msg.data || 'Unknown') + '</div>';
+          document.getElementById('statusText').textContent = '连接错误';
+          toast('RDP 错误: ' + (msg.data || 'Unknown'), 'error');
+        }
+      };
+
+      ws.onclose = function() {
+        setConnected(false);
+        document.getElementById('rdpStatus').classList.remove('hidden');
+        document.getElementById('rdpStatusText').textContent = '连接已断开';
+        document.getElementById('statusText').textContent = '连接已断开';
+      };
+
+      ws.onerror = function() {
+        toast('WebSocket 连接失败', 'error');
+      };
+    }
+
+    // ===== Mouse Events =====
+    function bindMouseEvents(canvasEl) {
+      function getMousePos(e) {
+        const rect = canvasEl.getBoundingClientRect();
+        return {
+          x: Math.floor((e.clientX - rect.left) * (canvasEl.width / rect.width)),
+          y: Math.floor((e.clientY - rect.top) * (canvasEl.height / rect.height))
+        };
+      }
+
+      canvasEl.addEventListener('mousedown', function(e) {
+        const pos = getMousePos(e);
+        ws.send(JSON.stringify({ type: 'mouse', x: pos.x, y: pos.y, button: e.button + 1, isPressed: true }));
+        e.preventDefault();
+      });
+
+      canvasEl.addEventListener('mouseup', function(e) {
+        const pos = getMousePos(e);
+        ws.send(JSON.stringify({ type: 'mouse', x: pos.x, y: pos.y, button: e.button + 1, isPressed: false }));
+        e.preventDefault();
+      });
+
+      canvasEl.addEventListener('mousemove', function(e) {
+        const pos = getMousePos(e);
+        ws.send(JSON.stringify({ type: 'mouse', x: pos.x, y: pos.y, button: 0, isPressed: false }));
+        e.preventDefault();
+      });
+
+      canvasEl.addEventListener('wheel', function(e) {
+        const pos = getMousePos(e);
+        const step = Math.abs(e.deltaY) > 0 ? 1 : 0;
+        const isNegative = e.deltaY > 0;
+        const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+        ws.send(JSON.stringify({ type: 'wheel', x: pos.x, y: pos.y, step: step, isNegative: isNegative, isHorizontal: isHorizontal }));
+        e.preventDefault();
+      });
+
+      canvasEl.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    }
+
+    // ===== Keyboard Events =====
+    function bindKeyboardEvents() {
+      document.addEventListener('keydown', function(e) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const code = Mstsc.scancode(e);
+        if (typeof code !== 'undefined') {
+          ws.send(JSON.stringify({ type: 'scancode', code: code, isPressed: true }));
+          e.preventDefault();
+        }
+      });
+
+      document.addEventListener('keyup', function(e) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const code = Mstsc.scancode(e);
+        if (typeof code !== 'undefined') {
+          ws.send(JSON.stringify({ type: 'scancode', code: code, isPressed: false }));
+          e.preventDefault();
+        }
+      });
+    }
+
+    // ===== Toolbar Actions =====
+    function sendCtrlAltDel() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      // Ctrl down, Alt down, Del down, Del up, Alt up, Ctrl up
+      ws.send(JSON.stringify({ type: 'scancode', code: 0x001D, isPressed: true }));  // Ctrl
+      ws.send(JSON.stringify({ type: 'scancode', code: 0xE038, isPressed: true }));  // Alt
+      ws.send(JSON.stringify({ type: 'scancode', code: 0xE053, isPressed: true }));  // Del
+      ws.send(JSON.stringify({ type: 'scancode', code: 0xE053, isPressed: false }));
+      ws.send(JSON.stringify({ type: 'scancode', code: 0xE038, isPressed: false }));
+      ws.send(JSON.stringify({ type: 'scancode', code: 0x001D, isPressed: false }));
+      toast('已发送 Ctrl+Alt+Del', 'success');
+    }
+
+    function disconnect() {
+      if (ws) { ws.close(); ws = null; }
+      setConnected(false);
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    function downloadRdpFile() {
+      if (!connInfo) return;
+      const lines = [
+        'full address:s:' + connInfo.host + ':' + connInfo.port,
+        'username:s:' + (connInfo.domain ? connInfo.domain + '\\' : '') + connInfo.username,
+        'screen mode id:i:2',
+        'desktopwidth:i:1920', 'desktopheight:i:1080',
+        'session bpp:i:32', 'compression:i:1',
+        'allow font smoothing:i:1', 'allow desktop composition:i:1',
+        'redirectclipboard:i:1', 'autoreconnection enabled:i:1',
+        'authentication level:i:2', 'prompt for credentials:i:0',
+        'negotiate security layer:i:1',
+      ];
+      const content = lines.join('\r\n') + '\r\n';
+      const blob = new Blob([content], { type: 'application/x-rdp' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (connInfo.name || connInfo.host).replace(/[^\w\-. ]/g, '_') + '.rdp';
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('RDP 文件已下载', 'success');
+    }
+  </script>
+</body>
+</html>

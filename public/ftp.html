@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FTP - NodeTerminal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-base: #05060f;
+      --bg-surface: #0c0e1a;
+      --bg-elevated: #131627;
+      --bg-card: #181b2e;
+      --bg-input: #1c2038;
+      --bg-hover: #222744;
+      --text-primary: #eef0ff;
+      --text-secondary: #6b7194;
+      --text-tertiary: #444a6b;
+      --accent: #66bb6a;
+      --accent-light: #81c784;
+      --accent-glow: rgba(102,187,106,0.25);
+      --danger: #ff6b6b;
+      --success: #00e676;
+      --warning: #ffd93d;
+      --border: rgba(255,255,255,0.06);
+      --border-light: rgba(255,255,255,0.1);
+      --radius-sm: 8px;
+    }
+    body {
+      font-family: 'Inter', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg-base); color: var(--text-primary);
+      height: 100vh; height: 100dvh;
+      display: flex; flex-direction: column; overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 10px; }
+
+    .topbar {
+      height: 44px; min-height: 44px;
+      background: var(--bg-surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 16px; gap: 10px;
+    }
+    .topbar-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .topbar-icon svg { width: 15px; height: 15px; stroke: var(--accent-light); fill: none; }
+    .topbar-title {
+      font-size: 13px; font-weight: 600; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px; min-width: 0;
+    }
+    .topbar-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar-sub { font-size: 11px; color: var(--text-tertiary); font-weight: 400; font-family: 'SF Mono', 'Cascadia Code', monospace; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .conn-badge {
+      display: flex; align-items: center; gap: 5px; font-size: 11px;
+      color: var(--text-tertiary); padding: 4px 12px; border-radius: 20px;
+      background: var(--bg-elevated); border: 1px solid var(--border); font-weight: 500;
+    }
+    .conn-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); }
+    .conn-badge.connected { color: var(--success); border-color: rgba(0,230,118,0.2); background: rgba(0,230,118,0.05); }
+    .conn-badge.connected .dot { background: var(--success); }
+
+    .toolbar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-surface);
+    }
+    .toolbar-btn {
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 6px 12px; border: 1px solid var(--border);
+      background: var(--bg-elevated); color: var(--text-secondary);
+      border-radius: 6px; font-size: 11px; font-weight: 500;
+      cursor: pointer; font-family: inherit; transition: all 0.15s;
+    }
+    .toolbar-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-light); }
+    .toolbar-btn svg { flex-shrink: 0; }
+    .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+    .toolbar-path {
+      flex: 1; display: flex; align-items: center; gap: 2px;
+      font-size: 12px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; min-width: 0;
+    }
+    .toolbar-path::-webkit-scrollbar { display: none; }
+    .path-crumb {
+      color: var(--text-tertiary); cursor: pointer; padding: 3px 6px;
+      border-radius: 4px; transition: all 0.15s; flex-shrink: 0;
+    }
+    .path-crumb:hover { color: var(--accent-light); background: var(--bg-hover); }
+    .path-crumb.current { color: var(--text-primary); font-weight: 600; cursor: default; }
+    .path-crumb.current:hover { background: transparent; }
+    .path-sep { color: var(--text-tertiary); opacity: 0.4; flex-shrink: 0; padding: 0 1px; }
+
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .file-area { flex: 1; overflow-y: auto; padding: 8px 16px; }
+    .file-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;
+    }
+    .file-card {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      background: var(--bg-surface); border: 1px solid var(--border);
+      cursor: pointer; transition: all 0.15s; position: relative; overflow: hidden;
+    }
+    .file-card:hover { border-color: var(--border-light); background: var(--bg-elevated); }
+    .file-card.dir:hover { border-color: rgba(102,187,106,0.3); }
+    .file-card-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .file-card-icon.dir { background: rgba(102,187,106,0.1); }
+    .file-card-icon.dir svg { stroke: var(--accent-light); }
+    .file-card-icon.file { background: rgba(107,113,148,0.1); }
+    .file-card-icon.file svg { stroke: var(--text-secondary); }
+    .file-card-icon svg { width: 18px; height: 18px; fill: none; stroke-width: 2; stroke-linecap: round; }
+    .file-card-info { flex: 1; min-width: 0; }
+    .file-card-name { font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-card-name.dir { color: var(--accent-light); }
+    .file-card-meta { font-size: 10px; color: var(--text-tertiary); font-family: 'SF Mono', monospace; margin-top: 2px; }
+    .file-card-actions {
+      display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      gap: 2px; background: var(--bg-elevated); padding: 2px; border-radius: 6px;
+    }
+    .file-card:hover .file-card-actions { display: flex; }
+    .fc-btn {
+      width: 26px; height: 26px; border: none; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; background: transparent; color: var(--text-tertiary); transition: all 0.15s;
+    }
+    .fc-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .fc-btn.danger:hover { color: var(--danger); }
+
+    .file-empty, .file-loading {
+      padding: 60px 20px; text-align: center; color: var(--text-tertiary); font-size: 13px; grid-column: 1 / -1;
+    }
+    .file-loading::after {
+      content: ''; display: inline-block; width: 14px; height: 14px; margin-left: 8px;
+      border: 2px solid var(--border-light); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .drop-overlay {
+      position: fixed; inset: 0; background: rgba(102,187,106,0.08);
+      border: 3px dashed var(--accent); display: none;
+      align-items: center; justify-content: center;
+      z-index: 100; color: var(--accent-light); font-size: 16px; font-weight: 600;
+    }
+    .drop-overlay.active { display: flex; }
+
+    .statusbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 16px; border-top: 1px solid var(--border);
+      background: var(--bg-surface); font-size: 10px; color: var(--text-tertiary);
+    }
+
+    .toast-container {
+      position: fixed; bottom: 20px; right: 20px;
+      display: flex; flex-direction: column; gap: 8px; z-index: 2000; pointer-events: none;
+    }
+    .toast {
+      padding: 10px 16px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500;
+      background: var(--bg-elevated); border: 1px solid var(--border-light);
+      color: var(--text-primary); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: toastIn 0.3s ease; pointer-events: auto;
+    }
+    .toast.error { border-color: rgba(255,107,107,0.3); color: var(--danger); }
+    .toast.success { border-color: rgba(0,230,118,0.3); color: var(--success); }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 768px) {
+      .file-grid { grid-template-columns: 1fr; }
+      .topbar { padding: 0 10px; gap: 6px; }
+      .toolbar { padding: 6px 10px; flex-wrap: wrap; }
+      .file-area { padding: 8px 10px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="12 13 12 17"/><polyline points="9 15 12 12 15 15"/></svg>
+    </div>
+    <div class="topbar-title">
+      <span>FTP</span>
+      <span class="topbar-sub" id="topbarLabel">连接中...</span>
+    </div>
+    <div class="topbar-right">
+      <div class="conn-badge" id="connBadge">
+        <span class="dot"></span>
+        <span id="connStatusText">连接中</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar" id="toolbar">
+    <button class="toolbar-btn" onclick="navigateTo('/')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    </button>
+    <button class="toolbar-btn" onclick="goUp()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button class="toolbar-btn" onclick="refreshDir()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    </button>
+    <div class="toolbar-sep"></div>
+    <button class="toolbar-btn" onclick="promptMkdir()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+      新建
+    </button>
+    <button class="toolbar-btn" onclick="triggerUpload()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      上传
+    </button>
+    <div class="toolbar-sep"></div>
+    <div class="toolbar-path" id="breadcrumb"></div>
+  </div>
+
+  <div class="main">
+    <div class="file-area" id="fileArea">
+      <div class="file-grid" id="fileGrid">
+        <div class="file-loading">连接中</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span id="statusText">连接中...</span>
+    <span id="itemCount"></span>
+  </div>
+
+  <div class="drop-overlay" id="dropOverlay">拖拽文件到此上传</div>
+  <input type="file" id="uploadInput" multiple style="display:none" onchange="handleUpload(this.files)">
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    const STORAGE_KEY = 'ssh_servers';
+    let connInfo = null;
+    let currentPath = '/';
+    let fileList = [];
+
+    function toast(msg, type) {
+      const el = document.createElement('div');
+      el.className = 'toast' + (type ? ' ' + type : '');
+      el.textContent = msg;
+      document.getElementById('toastContainer').appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    function formatSize(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+      if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+      return (b / 1073741824).toFixed(1) + ' GB';
+    }
+
+    function setConnected(ok) {
+      const badge = document.getElementById('connBadge');
+      const text = document.getElementById('connStatusText');
+      badge.className = ok ? 'conn-badge connected' : 'conn-badge';
+      text.textContent = ok ? '已连接' : '未连接';
+    }
+
+    function ftpOpts() {
+      return { host: connInfo.host, port: connInfo.port, username: connInfo.username, password: connInfo.password, secure: connInfo.secure };
+    }
+
+    async function ftpCall(endpoint, extra) {
+      const res = await fetch('/ftp/' + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...ftpOpts(), ...extra })
+      });
+      return await res.json();
+    }
+
+    // Load server info
+    const params = new URLSearchParams(location.search);
+    const serverId = params.get('id');
+    if (serverId) {
+      try {
+        const servers = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        const s = servers.find(x => x.id === serverId);
+        if (s) connInfo = {
+          name: s.name, host: s.host, port: s.port || 21,
+          username: s.username || 'anonymous', password: s.password || '',
+          secure: s.secure || 'false'
+        };
+      } catch {}
+    }
+
+    if (!connInfo) {
+      document.getElementById('topbarLabel').textContent = '缺少连接参数';
+      document.getElementById('fileGrid').innerHTML = '<div class="file-empty">缺少连接参数</div>';
+    } else {
+      document.title = 'FTP ' + connInfo.name + ' - NodeTerminal';
+      document.getElementById('topbarLabel').textContent = connInfo.host + ':' + connInfo.port;
+      navigateTo('/');
+    }
+
+    async function navigateTo(dir) {
+      currentPath = dir;
+      updateBreadcrumb();
+      document.getElementById('fileGrid').innerHTML = '<div class="file-loading">加载中</div>';
+      document.getElementById('statusText').textContent = '加载 ' + dir + ' ...';
+
+      const result = await ftpCall('list', { path: dir });
+      if (!result.ok) {
+        document.getElementById('fileGrid').innerHTML = '<div class="file-empty">加载失败: ' + esc(result.error) + '</div>';
+        document.getElementById('statusText').textContent = '错误: ' + result.error;
+        setConnected(false);
+        return;
+      }
+
+      setConnected(true);
+      fileList = result.data;
+      renderFiles();
+      document.getElementById('statusText').textContent = currentPath;
+      document.getElementById('itemCount').textContent = fileList.length + ' 项';
+    }
+
+    function renderFiles() {
+      const grid = document.getElementById('fileGrid');
+      if (fileList.length === 0) {
+        grid.innerHTML = '<div class="file-empty">空目录</div>';
+        return;
+      }
+
+      const dirs = fileList.filter(f => f.type === 'd').sort((a, b) => a.name.localeCompare(b.name));
+      const files = fileList.filter(f => f.type !== 'd').sort((a, b) => a.name.localeCompare(b.name));
+      const sorted = [...dirs, ...files];
+
+      const svgFolder = '<svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+      const svgFile = '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+      const svgDownload = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+      const svgRename = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+      const svgTrash = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
+      grid.innerHTML = sorted.map(f => {
+        const isDir = f.type === 'd';
+        const fullPath = currentPath.replace(/\/$/, '') + '/' + f.name;
+        const meta = isDir ? '' : formatSize(f.size || 0);
+        const dateStr = f.date ? ' · ' + f.date : '';
+
+        return `<div class="file-card ${isDir ? 'dir' : ''}" ondblclick="${isDir ? "navigateTo('" + esc(fullPath) + "')" : ''}">
+          <div class="file-card-icon ${isDir ? 'dir' : 'file'}">${isDir ? svgFolder : svgFile}</div>
+          <div class="file-card-info">
+            <div class="file-card-name ${isDir ? 'dir' : ''}">${esc(f.name)}</div>
+            <div class="file-card-meta">${meta}${dateStr}</div>
+          </div>
+          <div class="file-card-actions">
+            ${!isDir ? '<button class="fc-btn" title="下载" onclick="event.stopPropagation();downloadFile(\'' + esc(fullPath) + '\')">' + svgDownload + '</button>' : ''}
+            <button class="fc-btn" title="重命名" onclick="event.stopPropagation();promptRename('${esc(f.name)}','${isDir ? 'd' : 'f'}')">${svgRename}</button>
+            <button class="fc-btn danger" title="删除" onclick="event.stopPropagation();deleteItem('${esc(fullPath)}','${isDir ? 'd' : 'f'}')">${svgTrash}</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function updateBreadcrumb() {
+      const bc = document.getElementById('breadcrumb');
+      const parts = currentPath.split('/').filter(Boolean);
+      let html = '<span class="path-crumb' + (parts.length === 0 ? ' current' : '') + '" onclick="navigateTo(\'/\')">/</span>';
+      let accum = '';
+      parts.forEach((p, i) => {
+        accum += '/' + p;
+        const isCurrent = i === parts.length - 1;
+        html += '<span class="path-sep">/</span>';
+        html += '<span class="path-crumb' + (isCurrent ? ' current' : '') + '" onclick="navigateTo(\'' + accum + '\')">' + esc(p) + '</span>';
+      });
+      bc.innerHTML = html;
+    }
+
+    function goUp() {
+      if (currentPath === '/') return;
+      const parts = currentPath.split('/').filter(Boolean);
+      parts.pop();
+      navigateTo('/' + parts.join('/'));
+    }
+
+    function refreshDir() { navigateTo(currentPath); }
+
+    async function promptMkdir() {
+      const name = prompt('新建目录名称:');
+      if (!name) return;
+      const dirPath = currentPath.replace(/\/$/, '') + '/' + name;
+      const result = await ftpCall('mkdir', { path: dirPath });
+      if (result.ok) {
+        toast('目录创建成功', 'success');
+        refreshDir();
+      } else {
+        toast('创建失败: ' + result.error, 'error');
+      }
+    }
+
+    async function promptRename(oldName, type) {
+      const newName = prompt('重命名:', oldName);
+      if (!newName || newName === oldName) return;
+      const oldPath = currentPath.replace(/\/$/, '') + '/' + oldName;
+      const newPath = currentPath.replace(/\/$/, '') + '/' + newName;
+      const result = await ftpCall('rename', { oldPath, newPath });
+      if (result.ok) {
+        toast('重命名成功', 'success');
+        refreshDir();
+      } else {
+        toast('重命名失败: ' + result.error, 'error');
+      }
+    }
+
+    async function deleteItem(fullPath, type) {
+      const name = fullPath.split('/').pop();
+      if (!confirm('确认删除 ' + name + ' ?')) return;
+      const endpoint = type === 'd' ? 'rmdir' : 'delete';
+      const result = await ftpCall(endpoint, { path: fullPath });
+      if (result.ok) {
+        toast('删除成功', 'success');
+        refreshDir();
+      } else {
+        toast('删除失败: ' + result.error, 'error');
+      }
+    }
+
+    function downloadFile(remotePath) {
+      // Use a hidden form POST to trigger download
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/ftp/download';
+      form.style.display = 'none';
+
+      const fields = { ...ftpOpts(), path: remotePath };
+      for (const [k, v] of Object.entries(fields)) {
+        const input = document.createElement('input');
+        input.name = k; input.value = v;
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+      form.submit();
+      form.remove();
+    }
+
+    function triggerUpload() {
+      document.getElementById('uploadInput').click();
+    }
+
+    async function handleUpload(files) {
+      if (!files || files.length === 0) return;
+      for (const file of files) {
+        const reader = new FileReader();
+        reader.onload = async function() {
+          const base64 = reader.result.split(',')[1];
+          const remotePath = currentPath.replace(/\/$/, '') + '/' + file.name;
+          toast('上传 ' + file.name + '...', '');
+          const result = await ftpCall('upload', { path: remotePath, fileData: base64 });
+          if (result.ok) {
+            toast(file.name + ' 上传成功', 'success');
+            refreshDir();
+          } else {
+            toast(file.name + ' 上传失败: ' + result.error, 'error');
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+      document.getElementById('uploadInput').value = '';
+    }
+
+    // Drag & drop
+    let dragCounter = 0;
+    document.addEventListener('dragenter', e => { e.preventDefault(); dragCounter++; document.getElementById('dropOverlay').classList.add('active'); });
+    document.addEventListener('dragleave', e => { e.preventDefault(); dragCounter--; if (dragCounter <= 0) { dragCounter = 0; document.getElementById('dropOverlay').classList.remove('active'); } });
+    document.addEventListener('dragover', e => e.preventDefault());
+    document.addEventListener('drop', e => {
+      e.preventDefault(); dragCounter = 0;
+      document.getElementById('dropOverlay').classList.remove('active');
+      if (e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files);
+    });
+  </script>
+</body>
+</html>

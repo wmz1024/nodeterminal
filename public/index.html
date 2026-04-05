@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NodeTerminal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-base: #05060f;
+      --bg-surface: #0c0e1a;
+      --bg-elevated: #131627;
+      --bg-card: #181b2e;
+      --bg-input: #1c2038;
+      --bg-hover: #222744;
+      --text-primary: #eef0ff;
+      --text-secondary: #6b7194;
+      --text-tertiary: #444a6b;
+      --accent: #6c5ce7;
+      --accent-light: #a29bfe;
+      --accent-glow: rgba(108, 92, 231, 0.25);
+      --accent-gradient: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      --danger: #ff6b6b;
+      --danger-glow: rgba(255, 107, 107, 0.2);
+      --success: #00e676;
+      --success-glow: rgba(0, 230, 118, 0.15);
+      --warning: #ffd93d;
+      --border: rgba(255, 255, 255, 0.06);
+      --border-light: rgba(255, 255, 255, 0.1);
+      --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+      --shadow-md: 0 8px 32px rgba(0,0,0,0.4);
+      --shadow-lg: 0 16px 64px rgba(0,0,0,0.5);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 10px; }
+
+    /* ===== Topbar ===== */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: 64px;
+      background: rgba(5, 6, 15, 0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 16px;
+    }
+
+    .topbar .logo {
+      width: 36px; height: 36px;
+      background: var(--accent-gradient);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      flex-shrink: 0;
+    }
+    .topbar .logo svg { width: 20px; height: 20px; }
+
+    .topbar .brand {
+      display: flex; flex-direction: column; min-width: 0;
+    }
+    .topbar .brand-name {
+      font-size: 16px; font-weight: 700; letter-spacing: -0.3px;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+    }
+    .topbar .brand-sub {
+      font-size: 11px; color: var(--text-tertiary); font-weight: 400;
+    }
+
+    .topbar-actions {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ===== Buttons ===== */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 10px 18px; border: none; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+      font-family: inherit; text-decoration: none; white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--accent-gradient); color: #fff;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 24px var(--accent-glow); transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-sm { padding: 7px 14px; font-size: 12px; }
+    .btn-ghost { background: transparent; color: var(--text-secondary); }
+    .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .btn-outline {
+      background: transparent; color: var(--accent-light);
+      border: 1px solid rgba(108, 92, 231, 0.3);
+    }
+    .btn-outline:hover { background: var(--accent); color: #fff; }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid rgba(255,107,107,0.3); }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
+    .btn-connect {
+      background: rgba(0,230,118,0.1); color: var(--success);
+      border: 1px solid rgba(0,230,118,0.2);
+    }
+    .btn-connect:hover { background: var(--success); color: var(--bg-base); }
+
+    .icon-btn {
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent; color: var(--text-secondary);
+      border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s;
+    }
+    .icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .icon-btn.danger:hover { color: var(--danger); }
+
+    /* ===== Content ===== */
+    .content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    /* Quick Connect Bar */
+    .quick-bar {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      margin-bottom: 32px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .quick-bar .field { display: flex; flex-direction: column; gap: 6px; }
+    .quick-bar .field label {
+      font-size: 10px; font-weight: 600; color: var(--text-tertiary);
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .quick-bar .field input {
+      padding: 10px 14px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 13px; font-family: inherit; outline: none;
+      transition: all 0.2s;
+    }
+    .quick-bar .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .quick-bar .field input::placeholder { color: var(--text-tertiary); }
+    .quick-bar .field-host { flex: 2; min-width: 160px; }
+    .quick-bar .field-pwd { flex: 1; min-width: 120px; }
+
+    /* Section Header */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .section-header h2 {
+      font-size: 18px; font-weight: 700; letter-spacing: -0.3px;
+    }
+    .section-header .count {
+      font-size: 12px; color: var(--text-tertiary);
+      background: var(--bg-elevated); padding: 4px 12px;
+      border-radius: 20px; border: 1px solid var(--border);
+    }
+
+    /* ===== Server Grid ===== */
+    .server-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .server-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      transition: all 0.25s;
+      position: relative;
+      overflow: hidden;
+    }
+    .server-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      background: var(--accent-gradient);
+      opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .server-card:hover {
+      border-color: rgba(108, 92, 231, 0.25);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .server-card:hover::before { opacity: 1; }
+
+    .card-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .card-icon {
+      width: 42px; height: 42px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .card-icon svg { width: 20px; height: 20px; stroke: var(--accent-light); fill: none; }
+
+    .card-actions {
+      display: flex; gap: 2px;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .server-card:hover .card-actions { opacity: 1; }
+
+    .card-name {
+      font-size: 15px; font-weight: 600; margin-bottom: 8px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .card-info {
+      display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px;
+    }
+    .card-info-row {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text-secondary);
+    }
+    .card-info-row svg { width: 14px; height: 14px; flex-shrink: 0; stroke: var(--text-tertiary); fill: none; }
+    .card-info-row code {
+      font-family: 'SF Mono', 'Cascadia Code', monospace;
+      font-size: 12px; color: var(--text-secondary);
+      background: var(--bg-elevated); padding: 2px 8px;
+      border-radius: 4px; letter-spacing: 0.3px;
+    }
+
+    .card-footer {
+      display: flex; gap: 8px;
+    }
+    .card-footer .btn { flex: 1; }
+    .sync-status { font-size: 11px; font-weight: 500; }
+    .sync-status.synced { color: var(--success); }
+    .sync-status.unsynced { color: var(--warning); }
+
+    /* ===== Empty State ===== */
+    .empty-state {
+      text-align: center; padding: 80px 20px;
+      color: var(--text-tertiary);
+    }
+    .empty-state svg { opacity: 0.12; margin-bottom: 20px; }
+    .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+    .empty-state p { font-size: 13px; line-height: 1.6; }
+
+    /* ===== Pagination ===== */
+    .pagination {
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+      padding: 8px 0 24px;
+    }
+    .page-btn {
+      min-width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border); background: var(--bg-surface);
+      color: var(--text-secondary); border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      font-family: inherit; transition: all 0.15s; padding: 0 10px;
+    }
+    .page-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-light); }
+    .page-btn.active {
+      background: var(--accent); color: #fff;
+      border-color: var(--accent); box-shadow: 0 2px 8px var(--accent-glow);
+    }
+    .page-btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+    .page-info {
+      font-size: 12px; color: var(--text-tertiary); padding: 0 12px;
+    }
+
+    /* ===== Modal ===== */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(5, 6, 15, 0.8);
+      backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; opacity: 0; visibility: hidden;
+      transition: all 0.25s; padding: 16px;
+    }
+    .modal-overlay.show { opacity: 1; visibility: visible; }
+
+    .modal {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-xl);
+      width: 580px; max-width: 100%; max-height: 90vh;
+      overflow: hidden; display: flex; flex-direction: column;
+      box-shadow: var(--shadow-lg), 0 0 80px var(--accent-glow);
+      transform: translateY(20px) scale(0.96);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .modal-overlay.show .modal { transform: translateY(0) scale(1); }
+
+    .modal-header {
+      padding: 24px 24px 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-header h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+
+    .modal-body { padding: 0; display: flex; flex: 1; overflow: hidden; }
+    .modal-sidebar {
+      width: 140px; min-width: 140px; padding: 16px 10px;
+      background: var(--bg-surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .modal-sidebar-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      border: none; background: transparent; color: var(--text-secondary);
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: all 0.15s; width: 100%; text-align: left;
+    }
+    .modal-sidebar-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .modal-sidebar-item.active {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+    .modal-sidebar-item svg { flex-shrink: 0; }
+    .modal-form { flex: 1; padding: 20px 24px; overflow-y: auto; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block; font-size: 11px; font-weight: 600;
+      color: var(--text-secondary); margin-bottom: 8px;
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .form-group input,
+    .form-group textarea {
+      width: 100%; padding: 11px 14px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-primary);
+      font-size: 14px; font-family: inherit; outline: none; transition: all 0.2s;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    .form-group input::placeholder,
+    .form-group textarea::placeholder { color: var(--text-tertiary); }
+    .form-group textarea { resize: vertical; min-height: 80px; font-size: 13px; }
+
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+
+    .modal-footer {
+      padding: 0 24px 24px;
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+
+    .auth-toggle {
+      display: flex; background: var(--bg-input);
+      border-radius: var(--radius-sm); padding: 3px;
+      margin-bottom: 16px; border: 1px solid var(--border);
+    }
+    .auth-toggle button {
+      flex: 1; padding: 8px; border: none; background: transparent;
+      color: var(--text-secondary); font-size: 13px; border-radius: 6px;
+      cursor: pointer; font-family: inherit; transition: all 0.2s; font-weight: 500;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .auth-toggle button.active {
+      background: var(--accent-gradient); color: #fff;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 768px) {
+      .topbar { padding: 0 16px; height: 56px; }
+      .topbar .brand-sub { display: none; }
+      .content { padding: 20px 16px; }
+      .quick-bar { padding: 16px; flex-direction: column; gap: 10px; }
+      .quick-bar .field { width: 100%; }
+      .quick-bar .field input { width: 100%; }
+      .quick-bar .btn { width: 100%; }
+      .server-grid { grid-template-columns: 1fr; gap: 12px; }
+      .card-actions { opacity: 1; }
+      .section-header h2 { font-size: 16px; }
+      .modal { width: 100%; }
+      .modal-body { flex-direction: column; }
+      .modal-sidebar {
+        width: 100%; min-width: 100%; flex-direction: row;
+        border-right: none; border-bottom: 1px solid var(--border);
+        padding: 10px; overflow-x: auto;
+      }
+      .modal-sidebar-item { white-space: nowrap; padding: 8px 10px; font-size: 11px; }
+    }
+
+    @media (max-width: 400px) {
+      .topbar .brand-name { font-size: 14px; }
+    }
+
+    /* ===== Animations ===== */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeIn 0.3s ease; }
+
+    /* ===== Account / Sync ===== */
+    .account-area {
+      display: flex; align-items: center; gap: 8px;
+      margin-right: 4px; padding-right: 12px;
+      border-right: 1px solid var(--border);
+    }
+    .account-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--accent-gradient); display: flex;
+      align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+      text-transform: uppercase; flex-shrink: 0;
+    }
+    .account-name {
+      font-size: 12px; font-weight: 600; color: var(--text-primary);
+      max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .login-tabs {
+      display: flex; background: var(--bg-input); border-radius: var(--radius-sm);
+      padding: 3px; margin-bottom: 20px; border: 1px solid var(--border);
+    }
+    .login-tabs button {
+      flex: 1; padding: 9px; border: none; background: transparent;
+      color: var(--text-secondary); font-size: 13px; border-radius: 6px;
+      cursor: pointer; font-family: inherit; transition: all 0.2s; font-weight: 600;
+    }
+    .login-tabs button.active {
+      background: var(--accent-gradient); color: #fff;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+    .toast-container {
+      position: fixed; bottom: 20px; right: 20px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 2000; pointer-events: none;
+    }
+    .toast {
+      padding: 10px 16px; border-radius: var(--radius-sm);
+      font-size: 12px; font-weight: 500;
+      background: var(--bg-elevated); border: 1px solid var(--border-light);
+      color: var(--text-primary); box-shadow: var(--shadow-md);
+      animation: fadeIn 0.3s ease; pointer-events: auto;
+    }
+    .toast.error { border-color: rgba(255,107,107,0.3); color: var(--danger); }
+    .toast.success { border-color: rgba(0,230,118,0.3); color: var(--success); }
+    /* Login modal body fix — override horizontal flex */
+    #loginOverlay .modal { width: 420px; }
+    #loginOverlay .modal-body {
+      flex-direction: column; padding: 20px 24px; overflow-y: auto;
+    }
+    .encrypt-field {
+      margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+    }
+    .encrypt-hint {
+      font-size: 11px; color: var(--text-tertiary); margin-top: 6px; line-height: 1.5;
+    }
+    /* OIDC divider */
+    .oidc-divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 18px 0 14px; color: var(--text-tertiary); font-size: 11px;
+    }
+    .oidc-divider::before, .oidc-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .oidc-btn {
+      width: 100%; padding: 11px; border: 1px solid var(--border-light);
+      background: var(--bg-input); color: var(--text-primary);
+      border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .oidc-btn:hover { background: var(--bg-hover); border-color: var(--accent); }
+    /* Sync & Search Modal — fix body layout */
+    #syncOverlay .modal-body,
+    #searchOverlay .modal-body {
+      flex-direction: column; padding: 16px 24px; overflow-y: auto;
+    }
+    .sync-columns {
+      display: flex; gap: 16px; min-height: 200px;
+    }
+    .sync-col {
+      flex: 1; display: flex; flex-direction: column; min-width: 0;
+    }
+    .sync-col-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-bottom: 10px; margin-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sync-col-title {
+      font-size: 12px; font-weight: 700; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .sync-col-title .count-badge {
+      font-size: 10px; background: var(--bg-input); padding: 2px 8px;
+      border-radius: 10px; border: 1px solid var(--border); font-weight: 600;
+      color: var(--text-tertiary);
+    }
+    .sync-col-actions { display: flex; gap: 4px; }
+    .sync-list {
+      flex: 1; overflow-y: auto; max-height: 320px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .sync-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: var(--radius-sm);
+      background: var(--bg-input); border: 1px solid var(--border);
+      transition: all 0.15s;
+    }
+    .sync-item:hover { border-color: var(--border-light); }
+    .sync-item-icon {
+      width: 28px; height: 28px; border-radius: 6px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .sync-item-icon svg { width: 14px; height: 14px; stroke: var(--accent-light); fill: none; }
+    .sync-item-info {
+      flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+    }
+    .sync-item-name {
+      font-size: 12px; font-weight: 500;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sync-item-meta {
+      font-size: 10px; color: var(--text-tertiary);
+      font-family: 'SF Mono', 'Cascadia Code', monospace;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sync-item-actions { display: flex; gap: 2px; flex-shrink: 0; }
+    .sync-item-btn {
+      width: 26px; height: 26px; border: none; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s;
+      background: transparent; color: var(--text-tertiary);
+    }
+    .sync-item-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .sync-item-btn.upload:hover { color: var(--success); }
+    .sync-item-btn.download:hover { color: var(--accent-light); }
+    .sync-item-btn.danger:hover { color: var(--danger); }
+    .sync-empty {
+      padding: 30px 10px; text-align: center;
+      color: var(--text-tertiary); font-size: 12px;
+    }
+    .sync-divider {
+      width: 1px; background: var(--border); flex-shrink: 0;
+    }
+    .sync-toolbar {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 12px; padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sync-filter-toggle {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: var(--text-secondary); cursor: pointer;
+      user-select: none; font-weight: 500;
+    }
+    .sync-filter-toggle input { display: none; }
+    .sync-filter-check {
+      width: 16px; height: 16px; border-radius: 4px;
+      border: 1.5px solid var(--border-light); background: var(--bg-input);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .sync-filter-toggle input:checked + .sync-filter-check {
+      background: var(--accent); border-color: var(--accent);
+    }
+    .sync-filter-toggle input:checked + .sync-filter-check::after {
+      content: ''; width: 8px; height: 5px;
+      border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+      transform: rotate(-45deg); margin-top: -2px;
+    }
+    .sync-pager {
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 8px 0 2px; min-height: 30px;
+    }
+    .sync-pager:empty { display: none; }
+    .sync-pager-btn {
+      width: 26px; height: 26px; border: 1px solid var(--border);
+      background: var(--bg-input); color: var(--text-secondary);
+      border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s; font-size: 12px;
+    }
+    .sync-pager-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-light); }
+    .sync-pager-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .sync-pager-btn:disabled:hover { background: var(--bg-input); color: var(--text-secondary); }
+    .sync-pager-info {
+      font-size: 11px; color: var(--text-tertiary); min-width: 50px; text-align: center;
+    }
+    .sync-modal { width: 680px; }
+    /* Search Modal */
+    .search-modal-input {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 0 14px; height: 42px;
+      margin-bottom: 12px; transition: border-color 0.2s;
+    }
+    .search-modal-input:focus-within { border-color: var(--accent-light); }
+    .search-modal-input svg { flex-shrink: 0; color: var(--text-tertiary); }
+    .search-modal-input input {
+      flex: 1; border: none; background: transparent; outline: none;
+      font-size: 13px; color: var(--text-primary); font-family: inherit;
+    }
+    .search-modal-input input::placeholder { color: var(--text-tertiary); }
+    .search-tabs {
+      display: flex; gap: 4px; margin-bottom: 12px;
+      background: var(--bg-input); border-radius: var(--radius-sm);
+      padding: 3px; border: 1px solid var(--border);
+    }
+    .search-tabs button {
+      flex: 1; padding: 7px 12px; border: none; background: transparent;
+      color: var(--text-secondary); font-size: 12px; border-radius: 6px;
+      cursor: pointer; font-family: inherit; transition: all 0.2s; font-weight: 600;
+    }
+    .search-tabs button span {
+      font-size: 10px; opacity: 0.6; margin-left: 2px;
+    }
+    .search-tabs button.active {
+      background: var(--accent-gradient); color: #fff;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+    .search-tabs button.active span { opacity: 1; }
+    .search-results {
+      max-height: 380px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .search-result-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      background: var(--bg-input); border: 1px solid var(--border);
+      transition: all 0.15s; cursor: default;
+    }
+    .search-result-item:hover { border-color: var(--border-light); }
+    .search-result-info {
+      flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+    }
+    .search-result-name {
+      font-size: 13px; font-weight: 500;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .search-result-meta {
+      font-size: 11px; color: var(--text-tertiary);
+      font-family: 'SF Mono', 'Cascadia Code', monospace;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .source-badge {
+      font-size: 9px; font-weight: 700; padding: 1px 6px;
+      border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+    .source-badge.local {
+      background: rgba(0,230,118,0.1); color: var(--success);
+      border: 1px solid rgba(0,230,118,0.2);
+    }
+    .source-badge.cloud {
+      background: rgba(108,92,231,0.1); color: var(--accent-light);
+      border: 1px solid rgba(108,92,231,0.2);
+    }
+    .search-result-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .search-no-results {
+      padding: 40px 10px; text-align: center;
+      color: var(--text-tertiary); font-size: 12px;
+    }
+    @media (max-width: 768px) {
+      .account-name { display: none; }
+      .sync-columns { flex-direction: column; }
+      .sync-divider { width: auto; height: 1px; }
+      .sync-modal { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><path d="M7 15L11.5 10.5L7 6M13 18H19" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+    </div>
+    <div class="brand">
+      <span class="brand-name">NodeTerminal</span>
+      <span class="brand-sub">Remote Connection Manager</span>
+    </div>
+    <div class="topbar-actions">
+      <!-- Account Area (hidden until logged in) -->
+      <div class="account-area" id="accountArea" style="display:none">
+        <div class="account-avatar" id="accountAvatar">U</div>
+        <span class="account-name" id="accountName">user</span>
+        <button class="btn btn-outline btn-sm" onclick="showSyncModal()" style="padding:6px 12px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          同步
+        </button>
+        <button class="icon-btn" onclick="logout()" title="退出登录" style="width:28px;height:28px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+      <!-- Login button (shown when not logged in) -->
+      <button class="btn btn-ghost btn-sm" id="loginBtn" onclick="showLoginModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        登录同步
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="showSearchModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        搜索
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="showModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        添加服务器
+      </button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <!-- Quick Connect -->
+    <div class="quick-bar">
+      <div class="field field-host">
+        <label>快速连接</label>
+        <input type="text" id="quickHost" placeholder="user@host:port" autocapitalize="off" autocorrect="off" autocomplete="off">
+      </div>
+      <div class="field field-pwd">
+        <label>密码</label>
+        <input type="password" id="quickPwd" placeholder="密码" autocomplete="new-password">
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="quickConnect()" style="margin-bottom:1px;height:40px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        连接
+      </button>
+    </div>
+
+    <!-- Server Section -->
+    <div class="section-header">
+      <h2>服务器列表</h2>
+      <span class="count" id="serverCount">0 台服务器</span>
+    </div>
+
+    <div class="server-grid" id="serverGrid"></div>
+    <div id="pagination" class="pagination"></div>
+
+    <!-- Cloud-only servers (not in local) -->
+    <div id="cloudSection" style="display:none">
+      <div class="section-header" style="margin-top:12px">
+        <h2>云端未同步</h2>
+        <span class="count" id="cloudCount">0 台服务器</span>
+      </div>
+      <div class="server-grid" id="cloudGrid"></div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">添加服务器</h2>
+        <button class="icon-btn" onclick="hideModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-sidebar" id="typeSidebar">
+          <button class="modal-sidebar-item active" onclick="setServerType('ssh', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 15L11.5 10.5L7 6"/><path d="M13 18h6"/></svg>
+            SSH
+          </button>
+          <button class="modal-sidebar-item" onclick="setServerType('sftp', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            SFTP
+          </button>
+          <button class="modal-sidebar-item" onclick="setServerType('vnc', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            VNC
+          </button>
+          <button class="modal-sidebar-item" onclick="setServerType('rdp', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 8h4v4H7z"/><path d="M13 8h4"/><path d="M13 11h4"/></svg>
+            RDP
+          </button>
+          <button class="modal-sidebar-item" onclick="setServerType('ftp', this)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="12 13 12 17"/><polyline points="9 15 12 12 15 15"/></svg>
+            FTP
+          </button>
+        </div>
+        <div class="modal-form" id="modalForm">
+          <!-- SSH / SFTP fields -->
+          <div id="sshFields">
+            <div class="form-group">
+              <label>名称</label>
+              <input type="text" id="formName" placeholder="My Server" autocomplete="off">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>主机地址</label>
+                <input type="text" id="formHost" placeholder="192.168.1.1" autocapitalize="off" autocorrect="off">
+              </div>
+              <div class="form-group" style="max-width:100px">
+                <label>端口</label>
+                <input type="number" id="formPort" value="22">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>用户名</label>
+              <input type="text" id="formUser" placeholder="root" autocapitalize="off" autocorrect="off">
+            </div>
+            <div class="auth-toggle">
+              <button class="active" onclick="setAuthType('password', this)">密码认证</button>
+              <button onclick="setAuthType('key', this)">密钥认证</button>
+            </div>
+            <div id="authPassword">
+              <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="formPassword" placeholder="输入密码" autocomplete="new-password">
+              </div>
+            </div>
+            <div id="authKey" style="display:none">
+              <div class="form-group">
+                <label>私钥内容</label>
+                <textarea id="formKey" placeholder="粘贴 SSH 私钥内容"></textarea>
+              </div>
+            </div>
+          </div>
+          <!-- VNC fields -->
+          <div id="vncFields" style="display:none">
+            <div class="form-group">
+              <label>名称</label>
+              <input type="text" id="formVncName" placeholder="My VNC Server" autocomplete="off">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>主机地址</label>
+                <input type="text" id="formVncHost" placeholder="192.168.1.1" autocapitalize="off" autocorrect="off">
+              </div>
+              <div class="form-group" style="max-width:100px">
+                <label>端口</label>
+                <input type="number" id="formVncPort" value="5900">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>密码</label>
+              <input type="password" id="formVncPassword" placeholder="VNC 密码" autocomplete="new-password">
+            </div>
+          </div>
+          <!-- RDP fields -->
+          <div id="rdpFields" style="display:none">
+            <div class="form-group">
+              <label>名称</label>
+              <input type="text" id="formRdpName" placeholder="My Windows Server" autocomplete="off">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>主机地址</label>
+                <input type="text" id="formRdpHost" placeholder="192.168.1.1" autocapitalize="off" autocorrect="off">
+              </div>
+              <div class="form-group" style="max-width:100px">
+                <label>端口</label>
+                <input type="number" id="formRdpPort" value="3389">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>用户名</label>
+              <input type="text" id="formRdpUser" placeholder="Administrator" autocapitalize="off" autocorrect="off">
+            </div>
+            <div class="form-group">
+              <label>密码</label>
+              <input type="password" id="formRdpPassword" placeholder="输入密码" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+              <label>域 (可选)</label>
+              <input type="text" id="formRdpDomain" placeholder="WORKGROUP" autocomplete="off">
+            </div>
+          </div>
+          <!-- FTP fields -->
+          <div id="ftpFields" style="display:none">
+            <div class="form-group">
+              <label>名称</label>
+              <input type="text" id="formFtpName" placeholder="My FTP Server" autocomplete="off">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>主机地址</label>
+                <input type="text" id="formFtpHost" placeholder="192.168.1.1" autocapitalize="off" autocorrect="off">
+              </div>
+              <div class="form-group" style="max-width:100px">
+                <label>端口</label>
+                <input type="number" id="formFtpPort" value="21">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>用户名</label>
+              <input type="text" id="formFtpUser" placeholder="anonymous" autocapitalize="off" autocorrect="off">
+            </div>
+            <div class="form-group">
+              <label>密码</label>
+              <input type="password" id="formFtpPassword" placeholder="输入密码" autocomplete="new-password">
+            </div>
+            <div class="form-group">
+              <label>TLS/SSL</label>
+              <select id="formFtpSecure" style="width:100%;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;font-family:inherit;outline:none">
+                <option value="false">无加密</option>
+                <option value="implicit">FTPS (Implicit TLS)</option>
+                <option value="true">FTPS (Explicit TLS)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="hideModal()">取消</button>
+        <button class="btn btn-primary" style="width:auto;min-width:100px" onclick="saveServer()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg>
+          保存
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div class="modal-overlay" id="loginOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="loginModalTitle">登录</h2>
+        <button class="icon-btn" onclick="hideLoginModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="login-tabs">
+          <button class="active" id="tabLogin" onclick="switchLoginTab('login')">登录</button>
+          <button id="tabRegister" onclick="switchLoginTab('register')">注册</button>
+        </div>
+        <div class="form-group">
+          <label>用户名</label>
+          <input type="text" id="authUser" placeholder="字母、数字、下划线" autocomplete="off" autocapitalize="off">
+        </div>
+        <div class="form-group">
+          <label>密码</label>
+          <input type="password" id="authPass" placeholder="登录密码" autocomplete="new-password">
+        </div>
+        <div class="encrypt-field">
+          <div class="form-group" style="margin-bottom:0">
+            <label>加密密码</label>
+            <input type="password" id="authEncKey" placeholder="用于加密 SSH 信息（可与登录密码不同）" autocomplete="new-password">
+          </div>
+          <div class="encrypt-hint">此密码在客户端加密您的 SSH 配置，服务器无法查看您的连接信息。请务必牢记，丢失将无法恢复数据。</div>
+        </div>
+        <!-- OIDC login (hidden unless enabled) -->
+        <div id="oidcSection" style="display:none">
+          <div class="oidc-divider">或</div>
+          <button class="oidc-btn" onclick="oidcLogin()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+            <span id="oidcBtnLabel">OpenID 登录</span>
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="hideLoginModal()">取消</button>
+        <button class="btn btn-primary" style="min-width:100px" id="authSubmitBtn" onclick="authSubmit()">登录</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sync Modal -->
+  <div class="modal-overlay" id="syncOverlay">
+    <div class="modal sync-modal">
+      <div class="modal-header">
+        <h2>同步管理</h2>
+        <button class="icon-btn" onclick="hideSyncModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="sync-toolbar">
+          <label class="sync-filter-toggle">
+            <input type="checkbox" id="syncUniqueOnly" onchange="onSyncFilterChange()">
+            <span class="sync-filter-check"></span>
+            只看不重复
+          </label>
+        </div>
+        <div class="sync-columns">
+          <!-- Local -->
+          <div class="sync-col">
+            <div class="sync-col-header">
+              <div class="sync-col-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                本地
+                <span class="count-badge" id="syncLocalCount">0</span>
+              </div>
+              <div class="sync-col-actions">
+                <button class="icon-btn" onclick="syncUploadAll()" title="全部上传到云端" style="width:26px;height:26px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="sync-list" id="syncLocalList"></div>
+            <div class="sync-pager" id="syncLocalPager"></div>
+          </div>
+          <div class="sync-divider"></div>
+          <!-- Cloud -->
+          <div class="sync-col">
+            <div class="sync-col-header">
+              <div class="sync-col-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+                云端
+                <span class="count-badge" id="syncCloudCount">0</span>
+              </div>
+              <div class="sync-col-actions">
+                <button class="icon-btn" onclick="syncDownloadAll()" title="全部下载到本地" style="width:26px;height:26px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="sync-list" id="syncCloudList"></div>
+            <div class="sync-pager" id="syncCloudPager"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Modal -->
+  <div class="modal-overlay" id="searchOverlay">
+    <div class="modal sync-modal">
+      <div class="modal-header">
+        <h2>搜索服务器</h2>
+        <button class="icon-btn" onclick="hideSearchModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="search-modal-input">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="globalSearchInput" placeholder="搜索名称、IP、用户名..." oninput="onGlobalSearch()" autocomplete="off">
+          <button class="search-clear" id="globalSearchClear" onclick="clearGlobalSearch()" style="display:none">✕</button>
+        </div>
+        <div class="search-tabs">
+          <button class="active" id="sTabAll" onclick="switchSearchTab('all')">全部 <span id="sCountAll">0</span></button>
+          <button id="sTabLocal" onclick="switchSearchTab('local')">本地 <span id="sCountLocal">0</span></button>
+          <button id="sTabCloud" onclick="switchSearchTab('cloud')">云端 <span id="sCountCloud">0</span></button>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="index.js"></script>
+</body>
+</html>

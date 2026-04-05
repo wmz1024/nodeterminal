@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NodeTerminal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-base: #05060f;
+      --bg-surface: #0c0e1a;
+      --bg-elevated: #131627;
+      --bg-input: #1c2038;
+      --bg-hover: #222744;
+      --text-primary: #eef0ff;
+      --text-secondary: #6b7194;
+      --text-tertiary: #444a6b;
+      --accent: #6c5ce7;
+      --accent-light: #a29bfe;
+      --accent-glow: rgba(108, 92, 231, 0.25);
+      --accent-gradient: linear-gradient(135deg, #6c5ce7, #a29bfe);
+      --danger: #ff6b6b;
+      --danger-glow: rgba(255,107,107,0.2);
+      --success: #00e676;
+      --success-glow: rgba(0,230,118,0.15);
+      --warning: #ffd93d;
+      --border: rgba(255, 255, 255, 0.06);
+      --border-light: rgba(255, 255, 255, 0.1);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --file-panel-width: 340px;
+    }
+    body {
+      font-family: 'Inter', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      height: 100vh; height: 100dvh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 10px; }
+
+    /* ===== Topbar ===== */
+    .topbar {
+      height: 40px; min-height: 40px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 12px; gap: 8px;
+    }
+    .topbar-title {
+      font-size: 12px; font-weight: 500; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 6px; min-width: 0;
+    }
+    .topbar-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+    .tb-btn {
+      display: flex; align-items: center; justify-content: center;
+      gap: 5px; padding: 4px 10px; border: 1px solid var(--border);
+      background: var(--bg-elevated); color: var(--text-secondary);
+      border-radius: 6px; font-size: 11px; font-weight: 500;
+      cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap;
+    }
+    .tb-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-light); }
+    .tb-btn.active { background: rgba(108,92,231,0.15); color: var(--accent-light); border-color: rgba(108,92,231,0.3); }
+    .tb-btn svg { flex-shrink: 0; }
+
+    .conn-badge {
+      display: flex; align-items: center; gap: 5px; font-size: 11px;
+      color: var(--text-tertiary); padding: 3px 10px; border-radius: 20px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+    }
+    .conn-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); }
+    .conn-badge.connected { color: var(--success); border-color: rgba(0,230,118,0.2); background: rgba(0,230,118,0.05); }
+    .conn-badge.connected .dot { background: var(--success); }
+
+    .disconnect-btn {
+      display: none; padding: 4px 10px;
+      border: 1px solid rgba(255,107,107,0.3); background: transparent;
+      color: var(--danger); border-radius: 6px; font-size: 11px;
+      font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.2s;
+    }
+    .disconnect-btn:hover { background: var(--danger); color: #fff; }
+
+    /* ===== Layout ===== */
+    .workspace {
+      flex: 1; display: flex; overflow: hidden;
+    }
+
+    /* ===== File Panel ===== */
+    .file-panel {
+      width: var(--file-panel-width); min-width: var(--file-panel-width);
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      transition: margin-left 0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+    .file-panel.hidden {
+      margin-left: calc(var(--file-panel-width) * -1);
+    }
+
+    .fp-header {
+      padding: 10px 12px; display: flex; align-items: center;
+      gap: 6px; border-bottom: 1px solid var(--border);
+      min-height: 40px;
+    }
+    .fp-header-title {
+      font-size: 12px; font-weight: 600; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .fp-actions { margin-left: auto; display: flex; gap: 2px; }
+    .fp-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      border: none; background: transparent; color: var(--text-secondary);
+      border-radius: 6px; cursor: pointer; transition: all 0.15s;
+    }
+    .fp-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .fp-btn.danger:hover { color: var(--danger); }
+
+    /* Breadcrumb */
+    .fp-breadcrumb {
+      display: flex; align-items: center; gap: 2px;
+      padding: 6px 12px; font-size: 11px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto; white-space: nowrap;
+      scrollbar-width: none;
+    }
+    .fp-breadcrumb::-webkit-scrollbar { display: none; }
+    .fp-crumb {
+      color: var(--text-tertiary); cursor: pointer; padding: 2px 4px;
+      border-radius: 4px; transition: all 0.15s; flex-shrink: 0;
+    }
+    .fp-crumb:hover { color: var(--accent-light); background: var(--bg-hover); }
+    .fp-crumb.current { color: var(--text-primary); font-weight: 600; cursor: default; }
+    .fp-crumb.current:hover { background: transparent; }
+    .fp-sep { color: var(--text-tertiary); opacity: 0.4; flex-shrink: 0; padding: 0 1px; }
+
+    /* File list */
+    .fp-list {
+      flex: 1; overflow-y: auto; padding: 4px 0;
+    }
+    .fp-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 12px; cursor: pointer; transition: all 0.12s;
+      position: relative;
+    }
+    .fp-item:hover { background: var(--bg-hover); }
+    .fp-item.selected { background: rgba(108,92,231,0.1); }
+
+    .fp-icon { width: 18px; height: 18px; flex-shrink: 0; }
+    .fp-icon svg { width: 18px; height: 18px; }
+
+    .fp-name {
+      flex: 1; font-size: 12px; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .fp-name.dir { color: var(--accent-light); font-weight: 500; }
+
+    .fp-meta {
+      font-size: 10px; color: var(--text-tertiary);
+      flex-shrink: 0; font-family: 'SF Mono', monospace;
+    }
+
+    .fp-item-actions {
+      display: none; gap: 2px; position: absolute; right: 8px;
+      background: var(--bg-surface); padding: 0 2px;
+    }
+    .fp-item:hover .fp-item-actions { display: flex; }
+
+    .fp-empty {
+      padding: 40px 20px; text-align: center;
+      color: var(--text-tertiary); font-size: 12px;
+    }
+
+    .fp-loading {
+      padding: 40px 20px; text-align: center;
+      color: var(--text-tertiary); font-size: 12px;
+    }
+    .fp-loading::after {
+      content: ''; display: inline-block;
+      width: 14px; height: 14px; margin-left: 8px;
+      border: 2px solid var(--border-light); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Drop zone overlay */
+    .fp-dropzone {
+      position: absolute; inset: 0;
+      background: rgba(108,92,231,0.1);
+      border: 2px dashed var(--accent);
+      border-radius: var(--radius-sm);
+      display: none; align-items: center; justify-content: center;
+      z-index: 10; color: var(--accent-light);
+      font-size: 13px; font-weight: 600;
+    }
+    .fp-dropzone.active { display: flex; }
+
+    /* Status bar */
+    .fp-status {
+      padding: 6px 12px; border-top: 1px solid var(--border);
+      font-size: 10px; color: var(--text-tertiary);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    /* ===== Terminal ===== */
+    .terminal-area {
+      flex: 1; display: flex; flex-direction: column; min-width: 0;
+    }
+    .terminal-wrap { flex: 1; overflow: hidden; }
+    #terminal { width: 100%; height: 100%; }
+
+    /* ===== Settings Modal ===== */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(5,6,15,0.8); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; opacity: 0; visibility: hidden;
+      transition: all 0.25s; padding: 16px;
+    }
+    .modal-overlay.show { opacity: 1; visibility: visible; }
+    .modal {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-light);
+      border-radius: 16px; width: 400px; max-width: 100%;
+      box-shadow: 0 16px 64px rgba(0,0,0,0.5);
+      transform: translateY(20px) scale(0.96);
+      transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+    .modal-overlay.show .modal { transform: translateY(0) scale(1); }
+    .modal-header {
+      padding: 20px 20px 0; display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-header h2 { font-size: 16px; font-weight: 700; }
+    .modal-body { padding: 16px 20px 20px; }
+
+    .setting-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { font-size: 13px; color: var(--text-primary); }
+    .setting-desc { font-size: 11px; color: var(--text-tertiary); margin-top: 3px; }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative; width: 40px; height: 22px; flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle .slider {
+      position: absolute; inset: 0; background: var(--bg-input);
+      border: 1px solid var(--border-light); border-radius: 22px;
+      cursor: pointer; transition: all 0.25s;
+    }
+    .toggle .slider::before {
+      content: ''; position: absolute; width: 16px; height: 16px;
+      left: 2px; top: 2px; background: var(--text-secondary);
+      border-radius: 50%; transition: all 0.25s;
+    }
+    .toggle input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+    .toggle input:checked + .slider::before { transform: translateX(18px); background: #fff; }
+
+    /* ===== Editor Overlay ===== */
+    .editor-overlay {
+      position: fixed; inset: 0;
+      background: rgba(5,6,15,0.85); backdrop-filter: blur(10px);
+      display: flex; align-items: stretch; justify-content: center;
+      z-index: 1500; opacity: 0; visibility: hidden;
+      transition: all 0.25s; padding: 20px;
+    }
+    .editor-overlay.show { opacity: 1; visibility: visible; }
+    .editor-container {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-light);
+      border-radius: 16px; width: 100%; max-width: 900px;
+      display: flex; flex-direction: column;
+      box-shadow: 0 16px 64px rgba(0,0,0,0.6);
+      transform: translateY(20px) scale(0.97);
+      transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+      overflow: hidden;
+    }
+    .editor-overlay.show .editor-container { transform: translateY(0) scale(1); }
+    .editor-topbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      min-height: 48px; flex-shrink: 0;
+    }
+    .editor-filename {
+      flex: 1; font-size: 13px; font-weight: 600; color: var(--text-primary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .editor-filename svg { flex-shrink: 0; color: var(--accent-light); }
+    .editor-dirty { color: var(--warning); font-size: 11px; font-weight: 500; margin-left: 4px; }
+    .editor-size { font-size: 11px; color: var(--text-tertiary); flex-shrink: 0; }
+    .editor-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .editor-btn {
+      padding: 6px 14px; border: none; border-radius: 8px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      transition: all 0.15s;
+    }
+    .editor-btn.save {
+      background: var(--accent); color: #fff;
+    }
+    .editor-btn.save:hover { background: var(--accent-light); }
+    .editor-btn.save:disabled { opacity: 0.4; cursor: not-allowed; }
+    .editor-btn.close {
+      background: var(--bg-input); color: var(--text-secondary);
+      border: 1px solid var(--border-light);
+    }
+    .editor-btn.close:hover { color: var(--text-primary); background: var(--bg-hover); }
+    .editor-body {
+      flex: 1; display: flex; overflow: hidden;
+    }
+    .editor-textarea {
+      flex: 1; width: 100%; height: 100%; resize: none;
+      background: var(--bg-base); color: var(--text-primary);
+      border: none; outline: none; padding: 16px;
+      font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+      font-size: 13px; line-height: 1.6;
+      tab-size: 4; -moz-tab-size: 4;
+      white-space: pre; overflow: auto;
+    }
+    .editor-textarea::placeholder { color: var(--text-tertiary); }
+    .editor-statusbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 16px; border-top: 1px solid var(--border);
+      font-size: 10px; color: var(--text-tertiary); flex-shrink: 0;
+    }
+    .editor-loading {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: var(--text-tertiary); font-size: 13px; gap: 10px;
+    }
+    .editor-loading::after {
+      content: ''; width: 16px; height: 16px;
+      border: 2px solid var(--border-light); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @media (max-width: 768px) {
+      .editor-overlay { padding: 0; }
+      .editor-container { border-radius: 0; max-width: 100%; }
+      .editor-topbar { flex-wrap: wrap; gap: 6px; }
+      .editor-filename { width: 100%; }
+    }
+
+    /* ===== Toast ===== */
+    .toast-container {
+      position: fixed; bottom: 20px; right: 20px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 2000; pointer-events: none;
+    }
+    .toast {
+      padding: 10px 16px; border-radius: var(--radius-sm);
+      font-size: 12px; font-weight: 500;
+      background: var(--bg-elevated); border: 1px solid var(--border-light);
+      color: var(--text-primary); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: toastIn 0.3s ease;
+      pointer-events: auto;
+    }
+    .toast.error { border-color: rgba(255,107,107,0.3); color: var(--danger); }
+    .toast.success { border-color: rgba(0,230,118,0.3); color: var(--success); }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ===== Mobile ===== */
+    @media (max-width: 768px) {
+      :root { --file-panel-width: 100vw; }
+      .file-panel {
+        position: fixed; top: 40px; left: 0; bottom: 0;
+        z-index: 200; width: 100vw; min-width: 100vw;
+        transform: translateX(-100%);
+        transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+        margin-left: 0 !important;
+      }
+      .file-panel.mobile-open { transform: translateX(0); }
+      .file-panel.hidden { transform: translateX(-100%); }
+      .tb-btn .btn-label { display: none; }
+      .topbar { padding: 0 8px; gap: 4px; }
+      .fp-item-actions { display: flex; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 15L11.5 10.5L7 6"/><path d="M13 18h6"/></svg>
+      <span id="topbarLabel">连接中...</span>
+    </div>
+    <div class="topbar-right">
+      <button class="tb-btn" id="btnFiles" onclick="toggleFilePanel()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span class="btn-label">文件</span>
+      </button>
+      <button class="tb-btn" onclick="showSettings()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <span class="btn-label">设置</span>
+      </button>
+      <div class="conn-badge" id="connBadge">
+        <span class="dot"></span>
+        <span id="connStatusText">连接中</span>
+      </div>
+      <button class="disconnect-btn" id="disconnectBtn" onclick="disconnect()">断开</button>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <!-- File Panel -->
+    <div class="file-panel hidden" id="filePanel">
+      <div class="fp-header">
+        <div class="fp-header-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          SFTP 文件管理
+        </div>
+        <div class="fp-actions">
+          <button class="fp-btn" onclick="syncTerminalDir()" title="同步终端目录">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+          <button class="fp-btn" onclick="promptMkdir()" title="新建文件夹">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+          </button>
+          <button class="fp-btn" onclick="triggerUpload()" title="上传文件">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </button>
+          <button class="fp-btn" onclick="refreshDir()" title="刷新">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="fp-breadcrumb" id="fpBreadcrumb"></div>
+      <div class="fp-list" id="fpList" style="position:relative">
+        <div class="fp-loading">等待 SFTP 连接</div>
+        <div class="fp-dropzone" id="fpDropzone">拖拽文件到此上传</div>
+      </div>
+      <div class="fp-status" id="fpStatus">
+        <span id="fpStatusText">等待连接...</span>
+        <span id="fpItemCount"></span>
+      </div>
+      <input type="file" id="uploadInput" multiple style="display:none" onchange="handleUpload(this.files)">
+    </div>
+
+    <!-- Terminal Area -->
+    <div class="terminal-area">
+      <div class="terminal-wrap">
+        <div id="terminal"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>设置</h2>
+        <button class="fp-btn" onclick="hideSettings()" style="width:32px;height:32px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">自动跟随终端目录</div>
+            <div class="setting-desc">终端执行命令后自动同步文件管理器到当前目录</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="settingAutoFollow" onchange="saveSetting('autoFollow', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">显示隐藏文件</div>
+            <div class="setting-desc">显示以 . 开头的隐藏文件和目录</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="settingShowHidden" onchange="saveSetting('showHidden', this.checked); refreshDir()">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">自动打开文件面板</div>
+            <div class="setting-desc">连接成功后自动展开 SFTP 文件面板</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="settingAutoOpen" onchange="saveSetting('autoOpen', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor Overlay -->
+  <div class="editor-overlay" id="editorOverlay">
+    <div class="editor-container">
+      <div class="editor-topbar">
+        <div class="editor-filename" id="editorFilename">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span id="editorFileLabel">file.txt</span>
+          <span class="editor-dirty" id="editorDirty" style="display:none">●未保存</span>
+        </div>
+        <span class="editor-size" id="editorSize"></span>
+        <div class="editor-actions">
+          <button class="editor-btn save" id="editorSaveBtn" onclick="editorSave()" disabled>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            保存
+          </button>
+          <button class="editor-btn close" onclick="editorClose()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            关闭
+          </button>
+        </div>
+      </div>
+      <div class="editor-body" id="editorBody">
+        <div class="editor-loading" id="editorLoading">加载中</div>
+        <textarea class="editor-textarea" id="editorTextarea" style="display:none" placeholder="空文件" spellcheck="false"></textarea>
+      </div>
+      <div class="editor-statusbar">
+        <span id="editorCursor">行 1, 列 1</span>
+        <span id="editorEncoding">UTF-8</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+  <script src="terminal.js"></script>
+</body>
+</html>

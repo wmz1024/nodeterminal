@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>VNC - NodeTerminal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-base: #05060f;
+      --bg-surface: #0c0e1a;
+      --bg-elevated: #131627;
+      --bg-hover: #222744;
+      --text-primary: #eef0ff;
+      --text-secondary: #6b7194;
+      --text-tertiary: #444a6b;
+      --accent: #6c5ce7;
+      --accent-light: #a29bfe;
+      --accent-glow: rgba(108, 92, 231, 0.25);
+      --danger: #ff6b6b;
+      --success: #00e676;
+      --warning: #ffd93d;
+      --border: rgba(255, 255, 255, 0.06);
+      --border-light: rgba(255, 255, 255, 0.1);
+    }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      height: 100vh; height: 100dvh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .topbar {
+      height: 44px; min-height: 44px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 16px; gap: 10px;
+    }
+    .topbar-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .topbar-icon svg { width: 15px; height: 15px; stroke: var(--warning); fill: none; }
+    .topbar-title {
+      font-size: 13px; font-weight: 600; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px; min-width: 0;
+    }
+    .topbar-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .topbar-sub {
+      font-size: 11px; color: var(--text-tertiary); font-weight: 400;
+      font-family: 'SF Mono', 'Cascadia Code', monospace;
+    }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+    .conn-badge {
+      display: flex; align-items: center; gap: 5px; font-size: 11px;
+      color: var(--text-tertiary); padding: 4px 12px; border-radius: 20px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      font-weight: 500;
+    }
+    .conn-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); }
+    .conn-badge.connected { color: var(--success); border-color: rgba(0,230,118,0.2); background: rgba(0,230,118,0.05); }
+    .conn-badge.connected .dot { background: var(--success); }
+
+    .tb-btn {
+      display: flex; align-items: center; justify-content: center;
+      gap: 5px; padding: 5px 12px; border: 1px solid var(--border);
+      background: var(--bg-elevated); color: var(--text-secondary);
+      border-radius: 6px; font-size: 11px; font-weight: 500;
+      cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap;
+    }
+    .tb-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-light); }
+    .tb-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .tb-btn.danger { border-color: rgba(255,107,107,0.3); color: var(--danger); }
+    .tb-btn.danger:hover { background: var(--danger); color: #fff; }
+
+    .vnc-area {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      overflow: hidden; position: relative; background: #000;
+    }
+    .vnc-area canvas { max-width: 100%; max-height: 100%; }
+
+    .vnc-status {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; color: var(--text-tertiary); font-size: 14px;
+      background: var(--bg-base); z-index: 10;
+      transition: opacity 0.3s;
+    }
+    .vnc-status.hidden { opacity: 0; pointer-events: none; }
+    .vnc-spinner {
+      width: 28px; height: 28px;
+      border: 3px solid var(--border-light); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .vnc-error {
+      color: var(--danger); font-size: 13px;
+      text-align: center; padding: 0 20px;
+    }
+
+    .toast-container {
+      position: fixed; bottom: 20px; right: 20px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 2000; pointer-events: none;
+    }
+    .toast {
+      padding: 10px 16px; border-radius: 8px;
+      font-size: 12px; font-weight: 500;
+      background: var(--bg-elevated); border: 1px solid var(--border-light);
+      color: var(--text-primary); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: toastIn 0.3s ease;
+      pointer-events: auto;
+    }
+    .toast.error { border-color: rgba(255,107,107,0.3); color: var(--danger); }
+    .toast.success { border-color: rgba(0,230,118,0.3); color: var(--success); }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .statusbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 16px; border-top: 1px solid var(--border);
+      background: var(--bg-surface);
+      font-size: 10px; color: var(--text-tertiary);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-icon">
+      <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    </div>
+    <div class="topbar-title">
+      <span>VNC</span>
+      <span class="topbar-sub" id="topbarLabel">连接中...</span>
+    </div>
+    <div class="topbar-right">
+      <button class="tb-btn" id="btnCAD" onclick="sendCtrlAltDel()" title="Ctrl+Alt+Del">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        CAD
+      </button>
+      <button class="tb-btn" id="btnClipboard" onclick="toggleClipboard()" title="剪贴板">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+      <button class="tb-btn" id="btnFullscreen" onclick="toggleFullscreen()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      </button>
+      <div class="conn-badge" id="connBadge">
+        <span class="dot"></span>
+        <span id="connStatusText">连接中</span>
+      </div>
+      <button class="tb-btn danger" id="disconnectBtn" onclick="disconnect()" style="display:none">断开</button>
+    </div>
+  </div>
+
+  <div class="vnc-area" id="vncArea">
+    <div class="vnc-status" id="vncStatus">
+      <div class="vnc-spinner"></div>
+      <span id="vncStatusText">正在连接...</span>
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span id="statusText">等待连接...</span>
+    <span id="resolution"></span>
+  </div>
+
+  <!-- Clipboard overlay (hidden by default) -->
+  <div id="clipOverlay" style="display:none;position:fixed;inset:0;background:rgba(5,6,15,0.8);backdrop-filter:blur(8px);z-index:100;display:none;align-items:center;justify-content:center">
+    <div style="background:var(--bg-elevated);border:1px solid var(--border-light);border-radius:16px;width:400px;max-width:90%;padding:20px;box-shadow:0 16px 64px rgba(0,0,0,0.6)">
+      <div style="font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+        剪贴板
+        <button onclick="hideClipboard()" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:16px">✕</button>
+      </div>
+      <textarea id="clipText" style="width:100%;height:120px;background:var(--bg-base);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);padding:10px;font-family:monospace;font-size:13px;resize:vertical;outline:none" placeholder="粘贴内容到远程..."></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+        <button class="tb-btn" onclick="sendClipboard()">发送到远程</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script type="module">
+    import RFB from '/novnc/rfb.js';
+
+    const STORAGE_KEY = 'ssh_servers';
+    let rfb = null;
+
+    function toast(msg, type) {
+      const el = document.createElement('div');
+      el.className = 'toast' + (type ? ' ' + type : '');
+      el.textContent = msg;
+      document.getElementById('toastContainer').appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+    }
+
+    // Connection info
+    const params = new URLSearchParams(location.search);
+    const serverId = params.get('id');
+    let connInfo = null;
+    if (serverId) {
+      try {
+        const servers = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        const s = servers.find(x => x.id === serverId);
+        if (s) connInfo = { host: s.host, port: s.port || 5900, password: s.password || '', name: s.name };
+      } catch {}
+    }
+    if (!connInfo && params.get('host')) {
+      connInfo = {
+        host: params.get('host'),
+        port: parseInt(params.get('port') || '5900'),
+        password: params.get('pass') || '',
+        name: params.get('host') + ':' + (params.get('port') || '5900')
+      };
+    }
+
+    if (!connInfo) {
+      document.getElementById('topbarLabel').textContent = '缺少连接参数';
+      document.getElementById('vncStatusText').textContent = '错误: 缺少连接参数';
+      document.getElementById('connStatusText').textContent = '错误';
+    } else {
+      document.title = 'VNC ' + connInfo.name + ' - NodeTerminal';
+      document.getElementById('topbarLabel').textContent = connInfo.host + ':' + connInfo.port;
+      startConnection();
+    }
+
+    function startConnection() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = proto + '//' + location.host + '/vnc-proxy?host=' +
+        encodeURIComponent(connInfo.host) + '&port=' + encodeURIComponent(connInfo.port);
+
+      document.getElementById('vncStatusText').textContent = '正在连接 ' + connInfo.host + ':' + connInfo.port + '...';
+
+      try {
+        rfb = new RFB(document.getElementById('vncArea'), wsUrl, {
+          credentials: { password: connInfo.password || '' },
+          wsProtocols: [],
+        });
+
+        rfb.scaleViewport = true;
+        rfb.resizeSession = false;
+        rfb.clipViewport = false;
+
+        rfb.addEventListener('connect', () => {
+          setConnected(true);
+          document.getElementById('vncStatus').classList.add('hidden');
+          document.getElementById('statusText').textContent = '已连接 - ' + connInfo.host + ':' + connInfo.port;
+          toast('VNC 连接成功', 'success');
+        });
+
+        rfb.addEventListener('disconnect', (e) => {
+          setConnected(false);
+          const reason = e.detail.clean ? '连接已关闭' : '连接异常断开';
+          document.getElementById('vncStatus').classList.remove('hidden');
+          document.getElementById('vncStatusText').textContent = reason;
+          document.getElementById('statusText').textContent = reason;
+          toast(reason, e.detail.clean ? '' : 'error');
+        });
+
+        rfb.addEventListener('credentialsrequired', () => {
+          if (connInfo.password) {
+            rfb.sendCredentials({ password: connInfo.password });
+          } else {
+            const pwd = prompt('请输入 VNC 密码');
+            if (pwd) rfb.sendCredentials({ password: pwd });
+            else { rfb.disconnect(); }
+          }
+        });
+
+        rfb.addEventListener('desktopname', (e) => {
+          document.getElementById('statusText').textContent = e.detail.name + ' - ' + connInfo.host;
+        });
+
+        rfb.addEventListener('securityfailure', (e) => {
+          document.getElementById('vncStatus').classList.remove('hidden');
+          document.getElementById('vncStatusText').innerHTML =
+            '<div class="vnc-error">认证失败: ' + (e.detail.reason || '密码错误') + '</div>';
+          toast('VNC 认证失败', 'error');
+        });
+      } catch (err) {
+        document.getElementById('vncStatusText').innerHTML =
+          '<div class="vnc-error">连接失败: ' + err.message + '</div>';
+        toast('连接失败: ' + err.message, 'error');
+      }
+    }
+
+    function setConnected(status) {
+      const badge = document.getElementById('connBadge');
+      const text = document.getElementById('connStatusText');
+      const btn = document.getElementById('disconnectBtn');
+      badge.className = status ? 'conn-badge connected' : 'conn-badge';
+      text.textContent = status ? '已连接' : '未连接';
+      btn.style.display = status ? '' : 'none';
+    }
+
+    window.sendCtrlAltDel = function() {
+      if (rfb) {
+        rfb.sendCtrlAltDel();
+        toast('已发送 Ctrl+Alt+Del', 'success');
+      }
+    };
+
+    window.disconnect = function() {
+      if (rfb) { rfb.disconnect(); rfb = null; }
+      setConnected(false);
+    };
+
+    window.toggleFullscreen = function() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    };
+
+    window.toggleClipboard = function() {
+      const el = document.getElementById('clipOverlay');
+      el.style.display = el.style.display === 'flex' ? 'none' : 'flex';
+    };
+
+    window.hideClipboard = function() {
+      document.getElementById('clipOverlay').style.display = 'none';
+    };
+
+    window.sendClipboard = function() {
+      const text = document.getElementById('clipText').value;
+      if (rfb && text) {
+        rfb.clipboardPasteFrom(text);
+        toast('已发送到远程剪贴板', 'success');
+      }
+      document.getElementById('clipOverlay').style.display = 'none';
+    };
+
+    // Ctrl+Shift+V to open clipboard
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.getElementById('clipOverlay').style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>

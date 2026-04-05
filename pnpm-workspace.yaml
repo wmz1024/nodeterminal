@@ -1,0 +1,5 @@
+ignoredBuiltDependencies:
+  - ssh2
+
+onlyBuiltDependencies:
+  - cpu-features
